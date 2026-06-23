@@ -4,7 +4,14 @@ tsfiles <- paste0(run_dates, "/base_.dat_WA")
 tsfiles_filtered <- tsfiles[19:20] ## starts at 2018
 tspath <- "../data/g2g_data/Sim_g2g_run/"
 
-obs_mod_ts <- read_timeseries(tsfiles_filtered,tspath, model_only = FALSE )
+obs_mod_ts <- read.time.series(tsfiles_filtered,tspath)
+
+events <- read.csv("../data/notable_events.csv")
+
+
+catchments <- read.csv("../data/cdata/catchment_cdata_EA-NRW.csv")
+
+
 ## remember to unit test
 
 # tsdatX <- lapply(tsfiles_filtered,read.simple.file,path=tspath)
