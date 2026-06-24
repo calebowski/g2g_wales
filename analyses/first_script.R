@@ -4,7 +4,7 @@ library(lubridate)
 source("../functions/utility.R")
 run_dates <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
 tsfiles <- paste0(run_dates, "/base_.dat_WA")
-tsfiles_filtered <- tsfiles[19:20] ## starts at 2018
+tsfiles_filtered <- tsfiles[19:22] ## starts at 2018
 tspath <- file.path("..", "data", "g2g_data","Sim_g2g_run")
 
 
@@ -38,7 +38,7 @@ for (i in 1:nrow(events)) {
         storm_name <- event[, Storm_name]
     } else {
         j <- j + 1
-        storm_name <- paste0("Unnamed_storm_" , i) 
+        storm_name <- paste0("Unnamed_storm_" , j) 
     }
 
     if (!is.na(event[, Notable_catchment])) {
@@ -78,9 +78,18 @@ for (i in 1:nrow(events)) {
 
 
     event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
-    events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
+    events_list[[storm_name]] <- merge(event_mod, event_obs)
 }
 
+
+ggplot(events_list[[2]], aes(events_list[[2]]$DATE_TIME, events_list[[2]]$`060007_TG_9103_Mod`)) +
+  geom_line() +
+#   geom_line(aes(events_list[[2]]$`060007_TG_9103_Obs`) , data = events_list[[2]] )
+  ylab("Streamflow (CMS)") +
+  scale_color_manual(values = c("red", "black")) +
+  theme_bw() +
+  theme(legend.position = c(0.8, 0.8),
+        legend.title    = element_blank())
 
 
 
