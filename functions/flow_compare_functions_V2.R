@@ -529,25 +529,22 @@ get_stats<-function(tsdat,obs,sstart=ISOdatetime(1066,1,1,0,0,0) ,send=  ISOdate
   obs=obs[obs$DATE_TIME>=sstart & obs$DATE_TIME<=send,]
   tsdat=tsdat[tsdat$DATE_TIME>=sstart & tsdat$DATE_TIME<=send,]
   
-  if((!is.na(removeStart)) & (!is.na(removeEnd)) ){
-    obs=obs[obs$DATE_TIME<=removeStart | obs$DATE_TIME>=removeEnd,]
-    tsdat=tsdat[tsdat$DATE_TIME<=removeStart | tsdat$DATE_TIME>=removeEnd,]
-  }
+
   
-  if(!is.null(excludeDF)){
-    printp("subsetting times with excludeDF field",exclField)
-    if( !(nrow(obs)==nrow(tsdat) & all(obs$DATE_TIME == tsdat$DATE_TIME )) )stop("get_stats: check times here - excludeDF")
-    dateTimes = as.Date(obs$DATE_TIME)
-    m_excludeDF =  rep(F,nrow(obs)) #This will become list of times to exclude based on excludeDF
+  # if(!is.null(excludeDF)){
+  #   printp("subsetting times with excludeDF field",exclField)
+  #   if( !(nrow(obs)==nrow(tsdat) & all(obs$DATE_TIME == tsdat$DATE_TIME )) )stop("get_stats: check times here - excludeDF")
+  #   dateTimes = as.Date(obs$DATE_TIME)
+  #   m_excludeDF =  rep(F,nrow(obs)) #This will become list of times to exclude based on excludeDF
     
-    for(j in 1:nrow(excludeDF)){
-      if( excludeDF[j,exclField] ){
-        m_excludeDF = m_excludeDF | (dateTimes==excludeDF[j,"date"])
-      }
-    }
-  }else{
-    m_excludeDF = rep(F,nrow(obs))
-  }
+  #   for(j in 1:nrow(excludeDF)){
+  #     if( excludeDF[j,exclField] ){
+  #       m_excludeDF = m_excludeDF | (dateTimes==excludeDF[j,"date"])
+  #     }
+  #   }
+  # }else{
+  #   m_excludeDF = rep(F,nrow(obs))
+  # }
   
   if(dim(obs)[1]!=dim(tsdat)[1])Stop("number of timesteps in mod not equal to obs")
   sites=intersect(names(obs),names(tsdat))
@@ -562,10 +559,10 @@ get_stats<-function(tsdat,obs,sstart=ISOdatetime(1066,1,1,0,0,0) ,send=  ISOdate
     #eliminate NA or < 0 flows
     mod[mod<0]=NA
     ob[ob<0]=NA
-    m<-is.na(ob)|is.na(mod)|m_excludeDF
+    m<-is.na(ob)|is.na(mod)
     ob=ob[!m]
     mod=mod[!m]
-    if(length(ob)!=length(mod))Stop("unequal")
+    if(length(ob)!=length(mod)){stop("unequal")}
     
     #perc_bias 
     mean_ob=mean(ob)
@@ -574,11 +571,11 @@ get_stats<-function(tsdat,obs,sstart=ISOdatetime(1066,1,1,0,0,0) ,send=  ISOdate
     perc_bias<-(bias/mean_ob)*100
     
     #bias correct mod?
-    if(bias_correct){
-      print("warning - funny bias correct")
-      mod=mod-mean_mod+mean_ob
-      mean_mod=mean(mod)
-    }
+    # if(bias_correct){
+    #   print("warning - funny bias correct")
+    #   mod=mod-mean_mod+mean_ob
+    #   mean_mod=mean(mod)
+    # }
     
     #correlation coeff
     r = cor(ob,mod)
