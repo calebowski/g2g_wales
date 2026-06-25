@@ -45,7 +45,7 @@ return(tdata)
 
 # events should be a dataframe of events (see data)
 # notable sites will be a column in events
-make.events.list <- function(events,cdata, qt, region.classifier, exclude.non.notable.sites = FALSE) {
+make.events.list <- function(events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
 
   events_list <- list()
   j  <- 0
@@ -60,10 +60,12 @@ make.events.list <- function(events,cdata, qt, region.classifier, exclude.non.no
           storm_name <- paste0("Unnamed_storm_", j) 
       }
 
-      if (!is.na(event[, Notable_catchment])) {
-          river <- event[, Notable_catchment]
-          g2g_notable_sites <- cdata[grepl(river, cdata$River.Name, ignore.case = TRUE ),] 
-      }
+      # if (!is.na(event[, Notable_catchment])) {
+      #   river_string <- event$Notable_catchment
+      #   rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
+      #   river_pattern <- paste(rivers_vec, collapse = "|")
+      #   g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
+      # }
       ## get time period of event
 
       start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
@@ -72,18 +74,24 @@ make.events.list <- function(events,cdata, qt, region.classifier, exclude.non.no
       pend <- end_date + days(7)
 
       ## get geographic regions of event
-      g2g_ids <- c()
-      if (event$North) {
-          g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
+      if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
+        g2g_ids <- c()
+        if (event$North) {
+            g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
+        }
+        if (event$Mid) {
+            g2g_ids <- c(g2g_ids, cdata[region.classifier$mid_wales, ]$G2G.ID)
+        }
+        if (event$South) {
+            g2g_ids <- c(g2g_ids, cdata[(region.classifier$south_wales | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
+        }
+      } else if (exclude.non.notable.sites && !is.na(event[, Notable_catchment])) {
+        river_string <- event$Notable_catchment
+        rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
+        river_pattern <- paste(rivers_vec, collapse = "|")
+        g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
+        g2g_ids <- g2g_notable_sites$G2G.ID
       }
-      if (event$Mid) {
-          g2g_ids <- c(g2g_ids, cdata[region.classifier$mid_wales, ]$G2G.ID)
-      }
-      if (event$South) {
-          g2g_ids <- c(g2g_ids, cdata[(region.classifier$south_wales | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
-      }
-
-
       ## filter ts
 
       event_mod <- mod_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
@@ -97,8 +105,40 @@ make.events.list <- function(events,cdata, qt, region.classifier, exclude.non.no
 
 
       event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
-      events_list[[storm_name]] <- merge(event_mod, event_obs)
+      events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
   }
 
   return(events_list)
+}
+
+
+remove.suffix <- function(g2g_id, suffix = c("_Obs", "_Mod")) {
+  g2g_id_suffix_removed <- gsub("_Obs", "", g2g_id)
+}
+
+filter.qt <- function(event, qt) {
+  event <- event$obs
+  g2g_ids_obs <- colnames(event)[2:ncol(event)]
+  g2g_id <- vapply(g2g_ids_obs, remove.suffix, FUN.VALUE = "vector", USE.NAMES = FALSE)
+  filtered_qt <- qt[G2G.ID %in% g2g_id,] ## filtered_qt should have same number of cols as ncol(event) - 1
+  return(filtered_qt)
+}
+
+
+
+extract.peak.discharge <- function(event, qt, T = 10){
+  mod <- event$mod
+  obs <- event$obs
+  max_mod <- data.table()
+  for (i in colnames(mod)[2:ncol(mod)]) { ## skip the date
+    max_mod[,i] <-  max(mod[, ..i])
+  }
+  max_obs <- data.table()
+  for (i in colnames(obs)[2:ncol(obs)]) { ## skip the date
+    max_obs[,i] <-  max(obs[, ..i])
+  }
+
+
+
+
 }

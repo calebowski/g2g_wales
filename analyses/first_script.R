@@ -26,68 +26,75 @@ catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 
 wales_cdata <- catchments[Region. == "Wales", ]
 
+qt_dt <- fread("../data/QT_G2Gsites.csv")
 
 
-events_list <- list()
-j  <- 0
-north_wales_classifier <- wales_cdata$WISKI.NORTHING >= 300000
-mid_wales_classifier <- wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000
-south_wales_classifier <- wales_cdata$WISKI.NORTHING <= 230000
+
+# j  <- 0
+# north_wales_classifier <- wales_cdata$WISKI.NORTHING >= 300000
+# mid_wales_classifier <- wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000
+# south_wales_classifier <- wales_cdata$WISKI.NORTHING <= 230000
 
 
-region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, mid_walesr = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, south_wales= wales_cdata$WISKI.NORTHING <= 230000 )
+region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
+                          mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
+                          south_wales= wales_cdata$WISKI.NORTHING <= 230000)
 
 
-for (i in 1:nrow(events_pre_2022)) {
-    # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
-    event <- events[i, ]
-    storm_name <- NULL
-    if (!is.na(event[, Storm_name])){
-        storm_name <- event[, Storm_name]
-    } else {
-        j <- j + 1
-        storm_name <- paste0("Unnamed_storm_" , j) 
-    }
+events_list <- make.events.list(events, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
 
-    if (!is.na(event[, Notable_catchment])) {
-        river <- event[, Notable_catchment]
-        g2g_notable_sites <- wales_cdata[grepl(river, wales_cdata$River.Name, ignore.case = TRUE ),] 
-    }
-    ## get time period of event
+add_qt <- 
 
-    start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
-    end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
-    pstart <- start_date - days(7)
-    pend <- end_date + days(7)
+# for (i in 1:nrow(events_pre_2022)) {
+#     # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
+#     event <- events[i, ]
+#     storm_name <- NULL
+#     if (!is.na(event[, Storm_name])){
+#         storm_name <- event[, Storm_name]
+#     } else {
+#         j <- j + 1
+#         storm_name <- paste0("Unnamed_storm_" , j) 
+#     }
 
-    ## get geographic regions of event
-    g2g_ids <- c()
-    if (event$North) {
-        g2g_ids <- c(g2g_ids, wales_cdata[north_wales_classifier | Area. == "Northern [CY]" , ]$G2G.ID)
-    }
-    if (event$Mid) {
-        g2g_ids <- c(g2g_ids, wales_cdata[mid_wales_classifier, ]$G2G.ID)
-    }
-    if (event$South) {
-        g2g_ids <- c(g2g_ids, wales_cdata[(south_wales_classifier | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
-    }
+#     if (!is.na(event[, Notable_catchment])) {
+#         river <- event[, Notable_catchment]
+#         g2g_notable_sites <- wales_cdata[grepl(river, wales_cdata$River.Name, ignore.case = TRUE ),] 
+#     }
+#     ## get time period of event
+
+#     start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
+#     end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
+#     pstart <- start_date - days(7)
+#     pend <- end_date + days(7)
+
+#     ## get geographic regions of event
+#     g2g_ids <- c()
+#     if (event$North) {
+#         g2g_ids <- c(g2g_ids, wales_cdata[north_wales_classifier | Area. == "Northern [CY]" , ]$G2G.ID)
+#     }
+#     if (event$Mid) {
+#         g2g_ids <- c(g2g_ids, wales_cdata[mid_wales_classifier, ]$G2G.ID)
+#     }
+#     if (event$South) {
+#         g2g_ids <- c(g2g_ids, wales_cdata[(south_wales_classifier | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
+#     }
 
 
-    ## filter ts
+#     ## filter ts
 
-    event_mod <- mod_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
+#     event_mod <- mod_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
     
-    ## print the sites missing
-    expected_cols <- paste0(g2g_ids, "_Mod")
+#     ## print the sites missing
+#     expected_cols <- paste0(g2g_ids, "_Mod")
 
-    missing_cols <- setdiff(expected_cols, colnames(mod_ts))
+#     missing_cols <- setdiff(expected_cols, colnames(mod_ts))
 
-    cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
+#     cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
 
 
-    event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
-    events_list[[storm_name]] <- merge(event_mod, event_obs)
-}
+#     event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
+#     events_list[[storm_name]] <- merge(event_mod, event_obs)
+# }
 
 
 storm <- events_list[[2]]
