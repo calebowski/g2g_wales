@@ -35,12 +35,10 @@ get.stats <- function(tsdat, obs, sstart = ISOdatetime(1066,1,1,0,0,0), send = I
   statsDF = data.frame(G2G.ID = character(0), perc_bias = numeric(0), r = numeric(0), R2 = numeric(0), KGE = numeric(0), KGE_sqrt = numeric(0), MSE = numeric(0), RMSE = numeric(0), MAPE = numeric(0), n = numeric(0))
   
   for (site in sites) {
-    # 5. SAFE EXTRACTION: Double brackets [[ ]] pull the raw vector out.
-    # This prevents crashes when doing math if obs/tsdat are data.tables or tibbles!
+
     obs_col <- paste0(site, "_Obs")
-    mod_col <- paste0(site, "_Mod") # Adjust to just `site` if tsdat doesn't use the _Mod suffix
+    mod_col <- paste0(site, "_Mod") 
     
-    # Skip gracefully if the column doesn't exist in the model data
     if (!(mod_col %in% names(tsdat))) {
       warning(paste("Model data missing for site:", site, "- Skipping."))
       next
@@ -49,7 +47,6 @@ get.stats <- function(tsdat, obs, sstart = ISOdatetime(1066,1,1,0,0,0), send = I
     ob  = obs[[obs_col]]
     mod = tsdat[[mod_col]]
     
-    # eliminate NA or < 0 flows
     mod[mod < 0] = NA
     ob[ob < 0]   = NA
     

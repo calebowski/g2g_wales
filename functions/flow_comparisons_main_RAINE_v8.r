@@ -485,17 +485,17 @@ if(get_flows){
   #  Sys.time()-T0
   
   ## Load EA ## 
-  for(i in 1:length(tspathEA)){
-    cat("** reading ",tspathEA[i]," **\n")
-    tslistEA[[i]]=read_timeseries(tsfilesEA,tspathEA[i],model_only=T)
-  }
-  if(doSEPA){
-    ## Load SEPA ## 
-    for(i in 1:length(tspathSEPA)){
-      cat("** reading ",tspathSEPA[i]," **\n")
-      tslistSEPA[[i]]=read_timeseries(tsfilesSEPA,tspathSEPA[i],model_only=T)
-    }
-  }
+  # for(i in 1SEPA ## 
+  #   for(i in 1:length(tspathSEPA)){
+  #     cat("** reading ",tspathSEPA[i]," **\n")
+  #     tslistSEPA[[i]]= (tsfilesSEPA,tspathSEPA[i],model_only=T)
+  #   }
+  # }:length(tspathEA)){
+  #   cat("** reading ",tspathEA[i]," **\n")
+  #   tslistEA[[i]]=read_timeseries(tsfilesEA,tspathEA[i],model_only=T)
+  # }
+  # if(doSEPA){
+  #   ## Load 
   
   if(doSEPA){
     ## Merge EA - SEPA ##

@@ -41,68 +41,64 @@ return(tdata)
 }
 
 
-# read.time.series <- function(tsfiles, tspath, output = c("model", "observed")) {
-  
-#   tsdatX <- lapply(tsfiles, read.simple.file, path = tspath) ## read files into list
-#   processed_list <- list()
-  
-#   for(i in 1:length(tsdatX)) {
-#     ts_df <- tsdatX[[i]]
-
-    
-#     names(ts_df) <- gsub("^X", "", names(ts_df))
-    
-#     # DATE_TIME column added
-#     DT <- ISOdatetime(ts_df$Year, ts_df$Month, ts_df$Day, 0, 0, 0, tz = "GMT") + (60 * ts_df$Time)
-#     ts_df$DATE_TIME <- DT
-
-#     if (output == "model"){
-#       mod_cols <- grep("_Mod", names(ts_df), value = TRUE)
-#       ts_df <- ts_df[, c("DATE_TIME", mod_cols), drop = FALSE]
-#     } else if (output == "observed"){
-#       obs_cols <- grep("_Obs", names(ts_df), value = TRUE)
-#       ts_df <- ts_df[, c("DATE_TIME", obs_cols), drop = FALSE]
-#     }
-#     ## check that obs_cols matches mod_cols
-#     # if (!length(mod_cols) == length(obs_cols)){
-#     #   stop("Not same amount of mod and obs cols...\n")
-#     # }    
-#     ## probably redundant code since previous line will remove these cols but leaving in case
-#     # cols_to_remove <- c("Step", "Year", "Month", "Day", "Time", "En")
-#     # ts_df <- ts_df[, !names(ts_df) %in% cols_to_remove, drop = FALSE]
-    
-#     ## optional, could maybe find use of this by renaming catchments by the year they are in? might be of use later
-#     # if (length(tsfiles) > 1) {
-#     #   catchment_ids <- names(ts_df) != "DATE_TIME"
-#     #   names(ts_df)[catchment_ids] <- paste0(names(ts_df)[catchment_ids], "_", year)
-#     # }
-    
-#     processed_list[[i]] <- ts_df
-#   }
-
-#   ## use `Reduce` to compile df's at end of for loop
-#   ret <- Reduce(function(x, y) merge(x, y, by = "DATE_TIME", all = TRUE), processed_list)
-  
-#   return(ret)
-# }
-
-# ## unit test it
 
 
-# # read.time.series <- function(tsfiles, tspath){
-# #    tsdatX <- lapply(tsfiles,read.simple.file,path=tspath)
-# #     ret <- data.frame(DATE_TIME= (ISOdatetime((tsdatX[[1]])$"Year",(tsdatX[[1]])$"Month",(tsdatX[[1]])$"Day", 0,0,0,tz="GMT") +60*(tsdatX[[1]])$"Time"))
+# events should be a dataframe of events (see data)
+# notable sites will be a column in events
+make.events.list <- function(events,cdata, qt, region.classifier, exclude.non.notable.sites = FALSE) {
+
+  events_list <- list()
+  j  <- 0
+  for (i in 1:nrow(events_pre_2022)) {
+      # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
+      event <- events[i, ]
+      storm_name <- NULL
+      if (!is.na(event[, Storm_name])){
+          storm_name <- event[, Storm_name]
+      } else {
+          j <- j + 1
+          storm_name <- paste0("Unnamed_storm_", j) 
+      }
+
+      if (!is.na(event[, Notable_catchment])) {
+          river <- event[, Notable_catchment]
+          g2g_notable_sites <- cdata[grepl(river, cdata$River.Name, ignore.case = TRUE ),] 
+      }
+      ## get time period of event
+
+      start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
+      end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
+      pstart <- start_date - days(7)
+      pend <- end_date + days(7)
+
+      ## get geographic regions of event
+      g2g_ids <- c()
+      if (event$North) {
+          g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
+      }
+      if (event$Mid) {
+          g2g_ids <- c(g2g_ids, cdata[region.classifier$mid_wales, ]$G2G.ID)
+      }
+      if (event$South) {
+          g2g_ids <- c(g2g_ids, cdata[(region.classifier$south_wales | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
+      }
 
 
-# # }
+      ## filter ts
 
-# read.simple.file<-function(path,filename,sep=",",exclude=NULL,...) {
-# fname<-paste(path,filename,sep="")
-# tdata<-read.csv(fname,header=T,sep=sep,...)
-# tdata[tdata< -999]<-NA
-# if (!is.null(exclude))
-# {
-# tdata<-exclude_data(tdata,exclude)
-# }
-# return(tdata)
-# }
+      event_mod <- mod_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
+      
+      ## print the sites missing
+      expected_cols <- paste0(g2g_ids, "_Mod")
+
+      missing_cols <- setdiff(expected_cols, colnames(mod_ts))
+
+      cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
+
+
+      event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
+      events_list[[storm_name]] <- merge(event_mod, event_obs)
+  }
+
+  return(events_list)
+}

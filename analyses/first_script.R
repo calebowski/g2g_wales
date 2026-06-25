@@ -16,7 +16,10 @@ obs_ts <- read.time.series(tsfiles_filtered,tspath, output = "observed")
 
 
 
+
+
 events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
 
 
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
@@ -30,7 +33,12 @@ j  <- 0
 north_wales_classifier <- wales_cdata$WISKI.NORTHING >= 300000
 mid_wales_classifier <- wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000
 south_wales_classifier <- wales_cdata$WISKI.NORTHING <= 230000
-for (i in 1:nrow(events)) {
+
+
+region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, mid_walesr = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, south_wales= wales_cdata$WISKI.NORTHING <= 230000 )
+
+
+for (i in 1:nrow(events_pre_2022)) {
     # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
     event <- events[i, ]
     storm_name <- NULL
@@ -43,7 +51,7 @@ for (i in 1:nrow(events)) {
 
     if (!is.na(event[, Notable_catchment])) {
         river <- event[, Notable_catchment]
-        g2g_notable_sites <- wales_cdata[grepl(river, wales_cdata$River.Name, ignore.case = TRUE ),]
+        g2g_notable_sites <- wales_cdata[grepl(river, wales_cdata$River.Name, ignore.case = TRUE ),] 
     }
     ## get time period of event
 
@@ -82,20 +90,13 @@ for (i in 1:nrow(events)) {
 }
 
 
-ggplot(events_list[[2]], aes(events_list[[2]]$DATE_TIME, events_list[[2]]$`060007_TG_9103_Mod`)) +
-  geom_line() +
-#   geom_line(aes(events_list[[2]]$`060007_TG_9103_Obs`) , data = events_list[[2]] )
-  ylab("Streamflow (CMS)") +
-  scale_color_manual(values = c("red", "black")) +
-  theme_bw() +
-  theme(legend.position = c(0.8, 0.8),
-        legend.title    = element_blank())
+storm <- events_list[[2]]
 
-
-
-source("../Functions/get.stats.R")
+# source("../Functions/get.stats.R")
 source("../Functions/make.hydrograph.R")
 
+
+p <- make.hydrograph(storm, catchment = "060007_TG_9103")
 
 
 
