@@ -177,8 +177,18 @@ for (name in unique(highest_qt_exceeded$Storm)) {
 ## Notable catchments 
 
 ```{r}
-events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = TRUE)
+source("../functions/make.hydrograph.r")
+events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = TRUE)
 
+
+
+hydrograph_plots <- list()
+for (event in names(events_list_notable_catchments)) {
+  event_data <- events_list_notable_catchments[[event]]
+    for (g2g_id in gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))] )){
+       tryCatch(print(make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata)), error = function(e) NA)
+    }
+}
 
 
 

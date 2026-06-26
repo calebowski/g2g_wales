@@ -58,7 +58,7 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
           storm_name <- event[, Storm_name]
       } else {
           j <- j + 1
-          storm_name <- paste0("Unnamed_storm_", j) 
+          storm_name <- paste0("Unnamed_storm_", j) ## assign unnamed storms a name for reference to csv
       }
 
       # if (!is.na(event[, Notable_catchment])) {
@@ -71,10 +71,10 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
 
       start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
       end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
-      pstart <- start_date - lubridate::days(7)
-      pend <- end_date + lubridate::days(7)
+      pstart <- start_date - lubridate::days(7) ## period starts 7 days before 
+      pend <- end_date + lubridate::days(7) ## period ends 7 days after
 
-      ## get geographic regions of event
+      ## get geographic regions of event, using region classifer list
       if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
         g2g_ids <- c()
         if (event$North) {
