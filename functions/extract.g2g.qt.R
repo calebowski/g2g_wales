@@ -1,15 +1,12 @@
 read.ascii <- function(file_name) {
   cat("*opening ascii: ", file_name, "\n")
   
-  # 1. Read the first 6 lines safely
-  # readLines handles the file connection and automatically closes it
+
   header_lines <- readLines(file_name, n = 6, warn = FALSE)
   
-  # 2. Split each line by whitespace to separate the labels from the values
   parsed_header <- strsplit(trimws(header_lines), "\\s+")
   
-  # 3. Extract the metadata 
-  # (Note: R uses 1-based indexing, so [[1]][2] means line 1, item 2)
+
   nX <- as.integer(parsed_header[[1]][2])
   nY <- as.integer(parsed_header[[2]][2])
   x0 <- as.numeric(parsed_header[[3]][2])
@@ -17,7 +14,6 @@ read.ascii <- function(file_name) {
   gridSize <- as.numeric(parsed_header[[5]][2])
   noVal <- as.numeric(parsed_header[[6]][2])
   
-  # 4. Check for center or corner origin
   x_label <- tolower(parsed_header[[3]][1])
   y_label <- tolower(parsed_header[[4]][1])
   
@@ -30,13 +26,10 @@ read.ascii <- function(file_name) {
     center_or_corner <- "NA"
   }
   
-  # 5. Load the remaining grid data
-  # read.table natively handles reading space-separated grids into a dataframe.
-  # We skip the 6 header lines and immediately convert it to a numeric matrix.
+
   data_matrix <- as.matrix(read.table(file_name, skip = 6, header = FALSE))
-  dimnames(data_matrix) <- NULL # Removes default column names like V1, V2, etc.
+  dimnames(data_matrix) <- NULL 
   
-  # 6. Return everything as a bundled list
   return(list(
     fileName = file_name,
     nX = nX,
@@ -79,8 +72,23 @@ extract.at.points <- function(raster_obj, X, Y) {
   return(ret)
 }
 
-test <- read.ascii("../data/for_cdata/accuk_nffs.asc")
-test <- read.ascii("../data/for_cdata/q5_g2g_1_nffs.dat")
+make.qt.csv <- function(qt.grid.list, cdata) {
+  g2g_ids <- cdata$G2G.ID
+  qt_dt <- data.table()
+  for (id in g2g_ids){
+    id_row <- cdata[G2G.ID %in% id, ]
+    x <- id_row[,G2G.Easting]
+    y <- id_row[,G2G.Northing]
+    qt_vals <- lapply(qt.grid.list, function(qt){
+      extract.at.points(qt, x, y)
+    })
+    qt_row <- data.table(G2G.ID = id_row$G2G.ID, Site= id_row$Site.No,	G2G_Easting =x ,	G2G_Northing = y,	qmed =qt_vals$qmed ,	q5 = qt_vals$q5,	q10=qt_vals$q10,	q25=qt_vals$q25,	q50=qt_vals$q50,	q75=qt_vals$q75,	q100=qt_vals$q100,	q200=qt_vals$q200,	q250=qt_vals$q250,	q1000=qt_vals$q1000)
+    qt_dt <- rbind(qt_row, qt_dt)
+  }
+  write.csv(qt_dt, "../data/qt_g2g_sites_new.csv", row.names = FALSE)
+  return(qt_dt)
+}
 
-extraction <- extract.at.points(test, X = 307500, Y = 245500)
-extraction
+
+
+
