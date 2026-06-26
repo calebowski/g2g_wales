@@ -1,6 +1,6 @@
 ---
 title: "QT Exceedannce plots  for Storm events (Wales 2018-2021)"
-subtitle: "Sim data"
+subtitle: "SUFI data"
 author: "Caleb Scutt"
 date: "26/06/26"
 format:
@@ -43,10 +43,10 @@ source("../functions/plot.wales.R")
 
 ```{r}
 ## get g2g simulation file paths (this is Sim)
-run_dates <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
+run_dates <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
 tsfiles <- paste0(run_dates, "/base_.dat_WA")
 tsfiles_filtered <- tsfiles[19:22] ## starts at 2018
-tspath <- file.path("..", "data", "g2g_data","Sim_g2g_run")
+tspath <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
 ## read in mod and obs
 mod_ts <- read.time.series(tsfiles_filtered,tspath, output = "model")
 obs_ts <- read.time.series(tsfiles_filtered,tspath, output = "observed")
@@ -163,6 +163,7 @@ highest_qt_exceeded <- unique(
 ```{r echo = FALSE}
 
 library(gridExtra)
+
 
 
 for (name in unique(highest_qt_exceeded$Storm)) {

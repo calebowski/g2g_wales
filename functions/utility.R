@@ -48,6 +48,7 @@ return(tdata)
 make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
 
   events_list <- list()
+  events_with_notable_sites <- c()
   j  <- 0
   for (i in 1:nrow(events_pre_2022)) {
       # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
@@ -91,6 +92,7 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
         river_pattern <- paste(rivers_vec, collapse = "|")
         g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
         g2g_ids <- g2g_notable_sites$G2G.ID
+        events_with_notable_sites <- c(events_with_notable_sites, storm_name)
       }
       ## filter ts
 
@@ -105,6 +107,10 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
 
       event_obs <- obs[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
       events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
+  }
+
+  if (exclude.non.notable.sites) {
+    events_list <- events_list[events_with_notable_sites]
   }
 
   return(events_list)

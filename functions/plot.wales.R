@@ -51,16 +51,18 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
 
   # 1. THE NAMED VECTOR: This absolutely maps the threshold to the color.
   # If a plot only has q5 and q1000, it will perfectly pull DodgerBlue and Black.
+  # THE NAMED VECTOR: High-Saturation Hazard Scale
   qt_colors <- c(
-    "q1"    = "#4575b4", # Steel Blue
-    "q5"    = "#74add1", # Light Blue
-    "q10"   = "#abd9e9", # Pale Blue
-    "q25"   = "#e0f3f8", # Very Pale Blue/White
-    "q50"   = "#fee090", # Pale Yellow
-    "q75"   = "#fdae61", # Orange
-    "q100"  = "#f46d43", # Dark Orange
-    "q200"  = "#d73027", # Red
-    "q250"  = "#a50026", # Dark Red
+    "qmed"  = "#003366", # Navy Blue
+    "q1"    = "#005ce6", # Royal Blue
+    "q5"    = "#0099ff", # Vibrant Light Blue
+    "q10"   = "#00cccc", # Bright Teal / Cyan (Replaces the pale blue)
+    "q25"   = "#ffcc00", # Solid Gold (Replaces the near-white)
+    "q50"   = "#ff9900", # Vibrant Orange
+    "q75"   = "#ff6600", # Dark Orange
+    "q100"  = "#ff0000", # Pure Red
+    "q200"  = "#cc0000", # Dark Red
+    "q250"  = "#990000", # Maroon
     "q1000" = "#000000"  # Pitch Black (Extreme)
   )
 
@@ -95,7 +97,6 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
     ) +
     labs(
       title = paste(storm.name, "QT Threshold Exceedance Map"),
-      # Fixed the hardcoded subtitle here to be dynamic!
       subtitle = paste("Storm:", storm.name, "| Data Source:", data.type),
       x = "Easting (m)",
       y = "Northing (m)",
