@@ -45,7 +45,7 @@ return(tdata)
 
 # events should be a dataframe of events (see data)
 # notable sites will be a column in events
-make.events.list <- function(events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
+make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
 
   events_list <- list()
   j  <- 0
@@ -70,8 +70,8 @@ make.events.list <- function(events,cdata, region.classifier, exclude.non.notabl
 
       start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
       end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
-      pstart <- start_date - days(7)
-      pend <- end_date + days(7)
+      pstart <- start_date - lubridate::days(7)
+      pend <- end_date + lubridate::days(7)
 
       ## get geographic regions of event
       if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
@@ -94,17 +94,16 @@ make.events.list <- function(events,cdata, region.classifier, exclude.non.notabl
       }
       ## filter ts
 
-      event_mod <- mod_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
+      event_mod <- mod[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
       
       ## print the sites missing
       expected_cols <- paste0(g2g_ids, "_Mod")
 
-      missing_cols <- setdiff(expected_cols, colnames(mod_ts))
+      missing_cols <- setdiff(expected_cols, colnames(mod))
 
       cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
 
-
-      event_obs <- obs_ts[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs_ts) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
+      event_obs <- obs[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
       events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
   }
 

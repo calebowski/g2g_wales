@@ -47,42 +47,42 @@ plot.wales.simple <- function(dt, wales, t.val, storm.name, data.type = c("obs",
 }
 
 
-
-
 plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")) {
 
-
-  blue_to_red_10 <- c(
-  "#0A2540", # 1. Deep Navy (High density)
-  "#1F4068", # 2. Dark Slate Blue (High density)
-  "#3B5998", # 3. Steel Blue (High density)
-  "#5B517E", # 4. Muted Violet (High density)
-  "#7B4365", # 5. Deep Plum (High density)
-  "#9B3149", # 6. Wine Red (Low density)
-  "#BA1B2D", # 7. Crimson Red (Low density)
-  "#D1001C", # 8. Vivid Dark Red (Low density)
-  "#A3000F", # 9. Deep Blood Red (Low density)
-  "#6E0005"  # 10. Dark Maroon (Low density)
+  # 1. THE NAMED VECTOR: This absolutely maps the threshold to the color.
+  # If a plot only has q5 and q1000, it will perfectly pull DodgerBlue and Black.
+  qt_colors <- c(
+    "q1"    = "#4575b4", # Steel Blue
+    "q5"    = "#74add1", # Light Blue
+    "q10"   = "#abd9e9", # Pale Blue
+    "q25"   = "#e0f3f8", # Very Pale Blue/White
+    "q50"   = "#fee090", # Pale Yellow
+    "q75"   = "#fdae61", # Orange
+    "q100"  = "#f46d43", # Dark Orange
+    "q200"  = "#d73027", # Red
+    "q250"  = "#a50026", # Dark Red
+    "q1000" = "#000000"  # Pitch Black (Extreme)
   )
 
+  # Filter the data based on function arguments
   plot_dt <- dt[Storm %in% storm.name & Data_Type %in% data.type,]
 
-   p <- ggplot() +
+  p <- ggplot() +
     # LAYER 1: The Wales Shapefile Background
-    # filling it with a soft grey and a thin dark grey border
     geom_sf(data = wales, fill = "#f9f9f9", color = "#8c8c8c", size = 0.4) +
     
     # LAYER 2: Your Gauge Points
-    # Placed on top of the map using your Easting and Northing columns
     geom_point(data = plot_dt, 
-              aes(x = G2G_Easting, y = G2G_Northing, color = Threshold), 
-              size = 2.5, 
-              alpha = 0.9) +
+               aes(x = G2G_Easting, y = G2G_Northing, color = Threshold), 
+               size = 2.5, 
+               alpha = 0.9) +
         
-   
-    scale_color_manual(values = blue_to_red_10)+
+    # LAYER 3: Apply the locked-in color scale
+    # drop = FALSE ensures the legend still shows all categories if you want a consistent legend, 
+    # but usually you just want to map the colors cleanly.
+    scale_color_manual(values = qt_colors) +
     
-    # LAYER 4: Force 1:1 scale geometry so Wales doesn't get stretched
+    # LAYER 4: Force 1:1 scale geometry
     coord_sf(datum = 27700) + 
     
     # Theme and clean layout styling
@@ -95,12 +95,12 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
     ) +
     labs(
       title = paste(storm.name, "QT Threshold Exceedance Map"),
-      subtitle = paste("Storm: Unnamed_storm_3 | Data Source:", data.type),
+      # Fixed the hardcoded subtitle here to be dynamic!
+      subtitle = paste("Storm:", storm.name, "| Data Source:", data.type),
       x = "Easting (m)",
       y = "Northing (m)",
       color = "Exceeded QT?"
     )
-    return(p)
+    
+  return(p)
 }
-
-
