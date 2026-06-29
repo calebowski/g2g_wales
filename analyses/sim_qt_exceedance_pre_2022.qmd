@@ -95,7 +95,7 @@ qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
 ## Extract the peak discharge at each flood event
 
 * Peak discharge extracted at each event at each g2g site for both modelled and observed, then compared to each QT.
-* If mod / obs discharge is >= QT, TRUE is returned, else FALSE
+* If mod OR obs discharge is >= QT, TRUE is returned for that column, else FALSE
 
 ```{r}
 filtered_qt <- lapply(events_list, filter.qt, qt = qt_dt)
@@ -166,6 +166,7 @@ for (name in unique(highest_qt_exceeded$Storm)) {
   q <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "mod")
   grid.arrange(p, q, ncol=2)
 }
+
 
 ```
 
@@ -354,9 +355,9 @@ grid.arrange(grobs = model_miss_plots)
 ```{r echo = FALSE}
 
 event_verification <- comp_dt[, .(
-  Hits         = sum(!is.na(mod) & !is.na(obs)),  # Both predicted an exceedance
-  False_Alarms = sum(!is.na(mod) & is.na(obs)),   # Model predicted, gauge did not
-  Misses       = sum(is.na(mod) & !is.na(obs))    # Gauge observed, model missed it
+  Hits         = sum(!is.na(mod) & !is.na(obs)),  # 
+  False_Alarms = sum(!is.na(mod) & is.na(obs)),   
+  Misses       = sum(is.na(mod) & !is.na(obs))    
 ), by = Storm]
 
 event_verification[, POD := Hits / (Hits + Misses)]                  # Perfect = 1
