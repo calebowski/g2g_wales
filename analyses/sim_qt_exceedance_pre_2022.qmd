@@ -2,7 +2,6 @@
 title: "QT Exceedannce plots  for Storm events (Wales 2018-2021)"
 subtitle: "Sim data"
 author: "Caleb Scutt"
-date: "26/06/26"
 format:
   html:
     toc: true
@@ -16,9 +15,6 @@ execute:
   message: false
 ---
 
-# Logic
-
-* Read in G2G data
 
 ```{r echo = FALSE}
 ## load packages and functions
@@ -27,6 +23,8 @@ library(ggplot2)
 library(lubridate)
 library(gtools)
 library(sf)
+library(grid)
+library(gridExtra)
 source("../functions/utility.R")
 source("../functions/extract.g2g.qt.R")
 source("../functions/qt.comparison.R")
@@ -163,10 +161,6 @@ highest_qt_exceeded <- unique(
 
 ```{r echo = FALSE}
 
-library(gridExtra)
-
-
-
 for (name in unique(highest_qt_exceeded$Storm)) {
   p <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "obs")
   q <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "mod")
@@ -177,23 +171,74 @@ for (name in unique(highest_qt_exceeded$Storm)) {
 
 ## Notable catchments 
 
-```{r}
+These are hydrographs taken from the notable catchments highlighted by NRW for each storm event. 
+
+
+```{r echo = FALSE, message = FALSE, warning = FALSE}
+#| fig-width: 15
+#| fig-height: 10
 source("../functions/make.hydrograph.r")
 events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = TRUE)
 
 
 
-hydrograph_plots <- list()
 for (event in names(events_list_notable_catchments)) {
+  
   event_data <- events_list_notable_catchments[[event]]
-    for (g2g_id in gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))])){
-       tryCatch({
-        hydrograph <- make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
-        print(hydrograph)
-        }, error = function(e) NA)
+  
+  # FIX 1: Initialize as a clean, empty list
+  event_plots <- list() 
+  
+  g2g_ids <- gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))])
+  
+  for (g2g_id in g2g_ids) {
+    tryCatch({
+      # FIX 2: Use double brackets [[ ]] to populate your list
+      event_plots[[g2g_id]] <- make.hydrograph(
+        event.data = event_data, 
+        g2g.id = g2g_id, 
+        storm.name = event, 
+        cdata = wales_cdata, 
+        qt.data = filtered_qt
+      )
+    }, error = function(e) {
+      # If a site fails, do nothing so it doesn't pollute the list with NAs
+    })
+  }
+  
+  # Remove any NULL items that failed the tryCatch step
+  event_plots <- event_plots[!sapply(event_plots, is.null)]
+  
+  # Only attempt to build grids if you actually successfully generated plots
+  if (length(event_plots) > 0) {
+    
+    # CHUNKING LOGIC: Break the plots into batches of max 4 per grid page
+    max_plots_per_page <- 4
+    plot_chunks <- split(event_plots, ceiling(seq_along(event_plots) / max_plots_per_page))
+    
+    for (i in seq_along(plot_chunks)) {
+      current_chunk <- plot_chunks[[i]]
+      
+      # Determine column count dynamically (1 col if only 1 plot, otherwise 2 cols)
+      num_cols <- ifelse(length(current_chunk) == 1, 1, 2)
+      
+      # FIX 3: Use grid.draw + arrangeGrob for foolproof loop execution in Quarto
+      grid.shapes <- arrangeGrob(
+        grobs = current_chunk, 
+        ncol = num_cols,
+        top = grid::textGrob(
+          paste("Storm:", event), 
+          gp = gpar(fontSize = 20, font = 2)
+        )
+      )
+      
+      grid.draw(grid.shapes)
+      
+      # Force a clean page break/blank space in the output layout before the next grid
+      grid.newpage() 
     }
+  }
 }
-
 
 
 
@@ -203,13 +248,16 @@ for (event in names(events_list_notable_catchments)) {
 
 ```
 
+## Hydrographs (obs vs modelled comparison)
 
-## Biggest discrepancies in model vs obs
+### Largest flow mismatches in model vs obs
 
-```{r}
+Hydrographs shown for where there is the largest discrepancies in the QT exceeded (`worst_mismatches$rank_diff>=4`).
+Note that the storm events are lumped together here.
 
-
-library(data.table)
+```{r echo = FALSE}
+#| fig-width: 15
+#| fig-height: 20
 
 comp_dt <- dcast(
   highest_qt_exceeded, 
@@ -219,27 +267,104 @@ comp_dt <- dcast(
 
 comp_dt[, rank_mod := as.numeric(mod)] ## ranked where qmed is 1, q1000 is 10
 comp_dt[, rank_obs := as.numeric(obs)]
+comp_dt[is.na(rank_mod), rank_mod := 0]
+comp_dt[is.na(rank_obs), rank_obs := 0]
+
 
 comp_dt[, rank_diff := abs(rank_mod - rank_obs)] ## calculate rank differences
 
 worst_mismatches <- comp_dt[!is.na(rank_diff)][order(-rank_diff)]
-worst_mismatches <-worst_mismatches[worst_mismatches$rank_diff >=3] ## filter by where qt was a difference of 3
+worst_mismatches <-worst_mismatches[worst_mismatches$rank_diff >=4] ## filter by where qt was a difference of 3
 
+
+mismatch_plots <- list()
 for (i in 1:ncol(worst_mismatches)){
   event <- worst_mismatches[i, Storm]
   g2g_id <- worst_mismatches[i, G2G.ID]
   event_data <- events_list[[event]]
-  hg <- make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
-  print(hg)
+  mismatch_plots[[i]] <- tryCatch(make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt), error = function(e) NA)
 }
+mismatch_plots <- mismatch_plots[!sapply(mismatch_plots, is.na)]
+
+grid.arrange(grobs =mismatch_plots)
+
+
+
 
 
 # hydrograph <- make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
 
 
 
+```
 
 
+### False alarms (model exceeds qmed, observed under qmed )
+
+```{r echo = FALSE, warning = FALSE}
+#| fig-width: 15
+#| fig-height: 20
+
+
+# model false alarm for flood
+model_false_positives <- comp_dt[is.na(obs)]
+model_false_positives <- model_false_positives[order(-mod)]
+
+false_positive_plots <- list()
+for (i in 1:16){
+  event <- model_false_positives[i, Storm]
+  g2g_id <- model_false_positives[i, G2G.ID]
+  event_data <- events_list[[event]]
+  false_positive_plots[[i]] <- tryCatch(make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt), error = function(e) NA)
+} ## some of these are NA because lack of obs data??
+
+false_positive_plots <- false_positive_plots[!sapply(false_positive_plots, is.na)]
+
+grid.arrange(grobs = false_positive_plots)
+
+```
+
+### Model misses (observed exceeds qmed, model under qmed )
+
+```{r}
+#| fig-width: 15
+#| fig-height: 20
+
+model_miss <- comp_dt[is.na(mod)]
+model_miss <- model_miss[order(-obs)]
+model_miss_plots <- list()
+
+for (i in 1:10){
+  event <- model_miss[i, Storm]
+  g2g_id <- model_miss[i, G2G.ID]
+  event_data <- events_list[[event]]
+  model_miss_plots[[i]] <- make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
+}
+grid.arrange(grobs = model_miss_plots)
+
+```
+
+
+## Prediction accuracy metrics
+
+* POD = probability of detection (closer to 1 = better)
+* FAR = false alarm ratio (closer to 0 = better)
+* CSI = critical success ratio  (closer to 1 = better)
+
+```{r echo = FALSE}
+
+event_verification <- comp_dt[, .(
+  Hits         = sum(!is.na(mod) & !is.na(obs)),  # Both predicted an exceedance
+  False_Alarms = sum(!is.na(mod) & is.na(obs)),   # Model predicted, gauge did not
+  Misses       = sum(is.na(mod) & !is.na(obs))    # Gauge observed, model missed it
+), by = Storm]
+
+event_verification[, POD := Hits / (Hits + Misses)]                  # Perfect = 1
+event_verification[, FAR := False_Alarms / (Hits + False_Alarms)]    # Perfect = 0
+event_verification[, CSI := Hits / (Hits + Misses + False_Alarms)]   # Perfect = 1
+
+print(event_verification[order(-CSI)]) ## order by CSI which is most informative score?
 
 
 ```
+
