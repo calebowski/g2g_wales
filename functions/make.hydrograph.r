@@ -65,6 +65,7 @@ make.hydrograph <-function(event.data, g2g.id, storm.name, cdata, qt.data){
   scale_color_manual(values = c("Model" = "red", "Observed" = "black")) +
   # Themes and Legend placement
   theme_bw() +
+  scale_x_datetime(date_labels = "%d-%m-%Y") +
   theme(legend.position = c(0.8, 0.8),
         legend.title    = element_blank())
 

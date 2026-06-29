@@ -187,7 +187,6 @@ for (event in names(events_list_notable_catchments)) {
   
   event_data <- events_list_notable_catchments[[event]]
   
-  # FIX 1: Initialize as a clean, empty list
   event_plots <- list() 
   
   g2g_ids <- gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))])
