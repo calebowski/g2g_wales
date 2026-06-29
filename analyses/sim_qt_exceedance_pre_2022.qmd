@@ -9,6 +9,7 @@ format:
     code-fold: true
     fig-width: 12
     fig-height: 8
+    embed-resources: true
     theme: flatly
 execute:
   warning: false
@@ -185,10 +186,58 @@ events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_20
 hydrograph_plots <- list()
 for (event in names(events_list_notable_catchments)) {
   event_data <- events_list_notable_catchments[[event]]
-    for (g2g_id in gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))] )){
-       tryCatch(print(make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata)), error = function(e) NA)
+    for (g2g_id in gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))])){
+       tryCatch({
+        hydrograph <- make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
+        print(hydrograph)
+        }, error = function(e) NA)
     }
 }
+
+
+
+
+## perhaps highlight on map next to this where g2g site is?
+
+
+
+```
+
+
+## Biggest discrepancies in model vs obs
+
+```{r}
+
+
+library(data.table)
+
+comp_dt <- dcast(
+  highest_qt_exceeded, 
+  Storm + G2G.ID + Site + G2G_Easting + G2G_Northing ~ Data_Type, 
+  value.var = "Threshold"
+) ## pivots table so mod and obs are side by side
+
+comp_dt[, rank_mod := as.numeric(mod)] ## ranked where qmed is 1, q1000 is 10
+comp_dt[, rank_obs := as.numeric(obs)]
+
+comp_dt[, rank_diff := abs(rank_mod - rank_obs)] ## calculate rank differences
+
+worst_mismatches <- comp_dt[!is.na(rank_diff)][order(-rank_diff)]
+worst_mismatches <-worst_mismatches[worst_mismatches$rank_diff >=3] ## filter by where qt was a difference of 3
+
+for (i in 1:ncol(worst_mismatches)){
+  event <- worst_mismatches[i, Storm]
+  g2g_id <- worst_mismatches[i, G2G.ID]
+  event_data <- events_list[[event]]
+  hg <- make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
+  print(hg)
+}
+
+
+# hydrograph <- make.hydrograph(event_data, g2g_id,storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
+
+
+
 
 
 
