@@ -136,3 +136,37 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     
   return(p)
 }
+
+## utility funtion to plot a single point based on g2g
+
+## g2g.id can be a vector of strings or single string
+plot.single.point <- function(g2g.id,cdata, wales){
+
+    northing_easting <- cdata[G2G.ID %in% g2g.id,][,.(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)] ## use catchment size
+
+    p <- ggplot() +
+    # layer the wales map
+    geom_sf(data = wales, fill = "#f9f9f9", color = "#8c8c8c", size = 0.4) +
+    
+    # place g2g site points
+    geom_point(data = northing_easting, 
+               aes(x = G2G.Easting, y = G2G.Northing, size = CATCHMENTSIZE), 
+               alpha = 0.9) +
+            
+    ## Force 1:1 scale geometry so Wales doesn't get stretched
+    coord_sf(datum = 27700) + 
+    
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold", size = 14),
+      legend.position = "right"
+    ) +
+    labs(
+      title = paste(g2g.id, "location in Wales"),
+      x = "Easting (m)",
+      y = "Northing (m)",
+      size = "Catchment size"
+    )
+}
