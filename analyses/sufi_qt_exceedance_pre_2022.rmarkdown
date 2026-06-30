@@ -39,7 +39,7 @@ library(gridExtra)
 library(patchwork)
 source("../functions/utility.R")
 source("../functions/extract.g2g.qt.R")
-source("../functions/qt.comparison.R")
+source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 
 
@@ -123,7 +123,7 @@ for (t_val in qt_val){
 }
 
 
-qt_exceeded <- lapply(max_discharge_qt,lapply, compare.qt)
+qt_exceeded <- lapply(max_discharge_qt,lapply, qt.exceed)
 
 qt_exceeded_dt_list <- lapply(qt_exceeded, function(qt){
     dt_exceed <- data.table(
@@ -177,9 +177,12 @@ highest_qt_exceeded <- unique(
 for (name in unique(highest_qt_exceeded$Storm)) {
   p <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "obs")
   q <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "mod")
-  grid.arrange(p, q, ncol=2)
+  
+  print(
+    (p + q) +
+      plot_annotation(title = paste("Storm:", name))
+  )
 }
-
 
 ```
 
@@ -197,15 +200,9 @@ events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_20
 ```
 
 ```{r echo = FALSE}
+#| fig-align: left
+
 library(patchwork)
-
-event_data <- events_list_notable_catchments[[event]]
-
-
-
-
-
-
 
 
 for (event in names(events_list_notable_catchments)) {
@@ -292,7 +289,8 @@ worst_mismatches <-worst_mismatches[worst_mismatches$rank_diff >=4] ## filter by
 
 
 mismatch_plots <- list()
-for (i in 1:10){
+n_mismatch <- min(10, nrow(worst_mismatches))
+for (i in 1:n_mismatch) {
   event <- worst_mismatches[i, Storm]
   g2g_id <- worst_mismatches[i, G2G.ID]
   event_data <- events_list[[event]]
@@ -300,7 +298,8 @@ for (i in 1:10){
 }
 mismatch_plots <- mismatch_plots[!sapply(mismatch_plots, is.na)]
 
-grid.arrange(grobs = mismatch_plots)
+wrap_plots(mismatch_plots, ncol = 2) +
+  plot_annotation(title = "Largest flow mismatches (rank_diff >= 4)")
 
 
 
@@ -379,4 +378,15 @@ print(event_verification[order(-CSI)]) ## order by CSI which is most informative
 ```
 
 
+
+## Peak magnitude error
+
+```{r}
+
+
+
+
+
+
+```
 

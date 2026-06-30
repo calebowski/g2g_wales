@@ -65,14 +65,17 @@ make.hydrograph <-function(event.data, g2g.id, storm.name, cdata, qt.data){
       title = paste(storm.name, "at", g2g.id),
       subtitle = paste("River:", river_name, "Site:", site_name, "Area:", area),
       x = "",
-      y = "Flow (m^3 s^-1)") +
+      y = expression(Flow ~ (m^3 ~ s^-1))) +
   scale_color_manual(values = c("Model" = "red", "Observed" = "black")) +
   # Themes and Legend placement
   theme_bw() +
   scale_x_datetime(date_labels = "%d-%m-%Y") +
   theme(legend.position = c(0.8, 0.8),
         legend.title    = element_blank(),
-        aspect.ratio = 0.5)
+        aspect.ratio = 0.5,
+        plot.title = element_text(size = 9),
+        plot.subtitle = element_text(size = 7),
+  )
 
   return(p)
 }

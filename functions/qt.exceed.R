@@ -9,8 +9,8 @@ filter.qt <- function(event, qt) {
 
 
 
-
-extract.peak.discharge <- function(event, qt, T) {
+## 
+extract.peak.discharge <- function(event, qt = NULL, T) {
   mod <- event$mod
   obs <- event$obs
   max_mod <- c()
@@ -21,15 +21,18 @@ extract.peak.discharge <- function(event, qt, T) {
   for (i in colnames(obs)[2:ncol(obs)]) { ## skip the date
     max_obs[i] <-  max(obs[, ..i])
   }
-
-  qt_value <- qt[, get(T)]
-  names(qt_value) <- qt[, G2G.ID]
-
-  return(list(mod = max_mod, obs = max_obs, qt = qt_value))
+  #
+  if(!is.null(qt)){ 
+    qt_value <- qt[, get(T)]
+    names(qt_value) <- qt[, G2G.ID]
+    return(list(mod = max_mod, obs = max_obs, qt = qt_value))
+  } else {
+    return(list(mod = max_mod, obs = max_obs))
+  }
 }
 
 
-compare.qt <- function(max_discharge){
+qt.exceed <- function(max_discharge){
     mod <- max_discharge$mod
     obs <- max_discharge$obs
     qt <- max_discharge$qt
