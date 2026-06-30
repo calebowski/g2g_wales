@@ -10,6 +10,16 @@ format:
     fig-height: 8
     embed-resources: true
     theme: flatly
+  typst:
+    toc: true
+    fig-width: 8
+    fig-height: 5
+    margin:
+      x: 1in
+      y: 1in
+    fontsize: 11pt
+    section-numbering: 1.1.1
+    keep-typ: false
 execute:
   warning: false
   message: false
