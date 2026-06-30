@@ -1,4 +1,4 @@
-# library(colorspace)
+library(viridis)
 
 # Generate 10 colors from a perceptually uniform light-to-dark blue palette
 # pal <- sequential_hcl(10, palette = "Blues 2")
@@ -91,6 +91,47 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
       x = "Easting (m)",
       y = "Northing (m)",
       color = "Exceeded QT?"
+    )
+    
+  return(p)
+}
+
+
+
+plot.wales.pme <- function(dt, wales, storm.name) {
+
+
+  plot_dt <- dt[Storm %in% storm.name]
+
+  p <- ggplot() +
+    # layer the wales map
+    geom_sf(data = wales, fill = "#f9f9f9", color = "#8c8c8c", size = 0.4) +
+    
+    # place g2g site points
+    geom_point(data = plot_dt, 
+               aes(x = G2G_Easting, y = G2G_Northing, color = pme), 
+               size = 2.5, 
+               alpha = 0.9) +
+        
+    ## scale color=ur
+    scale_colour_viridis_c(option ="C") +
+    
+    ## Force 1:1 scale geometry so Wales doesn't get stretched
+    coord_sf(datum = 27700) + 
+    
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold", size = 14),
+      legend.position = "right"
+    ) +
+    labs(
+      title = paste(storm.name, "Peak Magnitude Error"),
+      subtitle = paste("Storm:", storm.name),
+      x = "Easting (m)",
+      y = "Northing (m)",
+      color = "PME \\ positive is mod overestimated vise versa"
     )
     
   return(p)

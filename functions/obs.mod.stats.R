@@ -11,5 +11,6 @@ peak.magnitude.error <- function(event) {
         obs_Q <- as.numeric(obs[grep(id, names(obs),value = TRUE)])
         pme[[id]] <- ((mod_Q - obs_Q) / obs_Q) * 100
     }
-    return(errors)
+
+    return(pme)
 }

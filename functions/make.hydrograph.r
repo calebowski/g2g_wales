@@ -72,7 +72,7 @@ make.hydrograph <-function(event.data, g2g.id, storm.name, cdata, qt.data){
   scale_x_datetime(date_labels = "%d-%m-%Y") +
   theme(legend.position = c(0.8, 0.8),
         legend.title    = element_blank(),
-        aspect.ratio = 0.5,
+        aspect.ratio = 0.8,
         plot.title = element_text(size = 9),
         plot.subtitle = element_text(size = 7),
   )

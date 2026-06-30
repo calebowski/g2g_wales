@@ -7,7 +7,7 @@ format:
     toc: true
     code-fold: true
     fig-width: 12
-    fig-height: 8
+    fig-height: 12
     embed-resources: true
     theme: flatly
   typst:
@@ -41,6 +41,7 @@ source("../functions/utility.R")
 source("../functions/extract.g2g.qt.R")
 source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
+source("../functions/obs.mod.stats.R")
 
 
 ```
@@ -127,12 +128,12 @@ qt_exceeded <- lapply(max_discharge_qt,lapply, qt.exceed)
 
 qt_exceeded_dt_list <- lapply(qt_exceeded, function(qt){
     dt_exceed <- data.table(
-    path     = names(unlist(qt)),
+    unsplit_name     = names(unlist(qt)),
     Exceeded = unlist(qt)
     )
-    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(path, "\\.", keep = 1:3)]
+    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
     dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
-    dt_exceed[, path := NULL]
+    dt_exceed[, unsplit_name := NULL]
     setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
     return(dt_exceed)
 })
@@ -381,9 +382,30 @@ print(event_verification[order(-CSI)]) ## order by CSI which is most informative
 
 ## Peak magnitude error
 
-```{r}
+Looking at sites that did see flooding observed (i.e., sites where q5 was exceeded) <br>
 
+```{r echo = FALSE}
 
+pme_list <- lapply(events_list, peak.magnitude.error)
+
+pme_dt <- data.table(
+  unsplit_name = names(unlist(pme_list)),
+  pme = unlist(pme_list)
+)
+
+pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
+pme_dt[, unsplit_name := NULL]
+setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
+
+merged_pme <- merge(pme_dt, qt_dt, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G_Easting, G2G_Northing)]
+
+qmed_exceeded <- exceeded_only[Threshold == "qmed" & Data_Type == "obs", paste(Storm, G2G.ID)]
+merged_pme <- merged_pme[paste(Storm, G2G.ID) %in% qmed_exceeded]
+
+for (name in unique(merged_pme$Storm)){
+  p <- plot.wales.pme(merged_pme, wales, storm.name = name)
+  print(p)
+}
 
 
 
