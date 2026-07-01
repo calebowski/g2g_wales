@@ -80,7 +80,7 @@ We subset Wales into North, Mid and South by these Northing values (can be adjus
 We subset the time series 7 days either side of the event beginning/end. <br>
 
 
-```{r message = FALSE, warning = FALSE, include = FALSE}
+```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
 ## classify regions based on northing (can be adjusted)
 region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
                           mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
@@ -148,9 +148,10 @@ wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_20
 wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
 
 
-flat_dt <- rbindlist(merged_dat, idcol = "Threshold")
+exceed_dt <- rbindlist(merged_dat, idcol = "Threshold")
 
-exceeded_only <- flat_dt[Exceeded == TRUE]
+
+exceeded_only <- exceed_dt[Exceeded == TRUE]
 
 exceeded_only[, Threshold := gsub("qmed", "q1", Threshold)]
 
@@ -171,7 +172,10 @@ highest_qt_exceeded <- unique(
 
 ```
 
-## Plots
+## QT Exceeded plots
+
+* These plots highlight the highest QT value exceeded at each G2G site, for both observed (left) and modelled (right).
+* If a site was not exceeded, it is a star. 
 
 ```{r echo = FALSE}
 
@@ -382,7 +386,9 @@ print(event_verification[order(-CSI)]) ## order by CSI which is most informative
 
 ## Peak magnitude error
 
-Looking at sites that did see flooding observed (i.e., sites where q5 was exceeded) <br>
+Looking at sites that did see flooding observed (i.e., sites where qmed was exceeded) <br>
+
+Note that the upper scale is cutoff at 95th quantile to prevent outliers controlling colour range.
 
 ```{r echo = FALSE}
 

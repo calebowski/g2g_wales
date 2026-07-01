@@ -100,8 +100,10 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
 
 plot.wales.pme <- function(dt, wales, storm.name) {
 
-
   plot_dt <- dt[Storm %in% storm.name]
+  # max_pme <- max(dt$pme, na.rm = TRUE)
+  # min_pme <- min(dt$pme, na.rm = TRUE)
+
 
   p <- ggplot() +
     # layer the wales map
@@ -110,11 +112,31 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     # place g2g site points
     geom_point(data = plot_dt, 
                aes(x = G2G_Easting, y = G2G_Northing, color = pme), 
-               size = 2.5, 
+               size = 3.5, 
                alpha = 0.9) +
         
     ## scale color=ur
-    scale_colour_viridis_c(option ="C") +
+
+    
+    scale_colour_gradient2(
+      low = "#0c82f8",      # strong blue (underestimate — IMPORTANT)
+      mid = "#2F2F2F",      # dark neutral (clear + visible)
+      high = "#f80623",     # strong red (overestimate)
+      midpoint = 0,
+    limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.99, na.rm = TRUE)),
+      trans = "pseudo_log",
+      oob = scales::squish
+    ) +
+
+    
+    
+    
+  # scale_colour_viridis_c(
+  #   option = "C",
+  #   limits = c(min(dt$pme), quantile(dt$pme, 0.99, na.rm = TRUE)),
+  #   oob = scales::squish
+  # ) +
+
     
     ## Force 1:1 scale geometry so Wales doesn't get stretched
     coord_sf(datum = 27700) + 
@@ -131,7 +153,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
       subtitle = paste("Storm:", storm.name),
       x = "Easting (m)",
       y = "Northing (m)",
-      color = "PME \\ positive is mod overestimated vise versa"
+      color = "PME % (positive = mod overestimated)"
     )
     
   return(p)
