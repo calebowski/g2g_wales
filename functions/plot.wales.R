@@ -44,7 +44,15 @@ library(viridis)
 # }
 
 
-plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")) {
+plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "sim", "sufi")) {
+
+  if (data.type %in% c("sim", "sufi")){
+    data_source <- data.type
+    data.type  <- "mod"
+  } else if (data.type== "obs"){
+    data_source <- data.type
+  }
+
 
   qt_colours <- c(
     "None" = NA,
@@ -78,9 +86,9 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
         
     ## scale color=ur
     scale_fill_manual(
-  values = qt_colours,
-  na.value = NA
-  ) +
+    values = qt_colours,
+    na.value = NA
+    ) +
     
     ## Force 1:1 scale geometry so Wales doesn't get stretched
     coord_sf(datum = 27700) + 
@@ -90,11 +98,17 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
       panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
       panel.grid.minor = element_blank(),
       plot.title = element_text(face = "bold", size = 14),
-      legend.position = "right"
-    ) +
+      legend.position = "right",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank()
+      ) +
     labs(
-      title = paste(storm.name, "QT Threshold Exceedance Map"),
-      subtitle = paste("Storm:", storm.name, "| Data Source:", data.type),
+      # title = paste(storm.name, "QT Threshold Exceedance Map"),
+      title = paste("Data source:", data_source),
       x = "Easting (m)",
       y = "Northing (m)",
       color = "Exceeded QT?"
@@ -119,7 +133,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     # place g2g site points
     geom_point(data = plot_dt, 
                aes(x = G2G_Easting, y = G2G_Northing, color = pme), 
-               size = 3.0, 
+               size = 5.0, 
                alpha = 0.9) +
         
     ## scale color=ur
@@ -152,14 +166,15 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     theme(
       panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
       panel.grid.minor = element_blank(),
-      plot.title = element_text(face = "bold", size = 16),
+      plot.title = element_text(face = "bold", size = 20),
       legend.position = "right",
-      axis.title.x = element_blank(),
-      axis.title.y = element_blank(),
-      axis.text.x = element_blank(),
-      axis.text.y = element_blank(),
-      axis.ticks.x = element_blank(),
-      axis.ticks.y = element_blank()
+      legend.text = element_text(size = 20),
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.ticks.y = element_blank()
     ) +
     labs(
       title = paste(storm.name, "Peak Magnitude Error"),
@@ -203,4 +218,11 @@ plot.single.point <- function(g2g.id,cdata, wales){
       y = "Northing (m)",
       size = "Catchment size"
     )
+}
+
+
+
+test.arg <- function(data.type = c("sim", "sufi")){
+  obs <- match.arg(data.type, "mod")
+  return(obs)
 }

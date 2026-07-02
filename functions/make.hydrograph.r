@@ -82,7 +82,7 @@ make.hydrograph.simple <-function(event.data, g2g.id, storm.name, cdata, qt.data
 }
 
 
-make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.data){
+make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.data, sufi){
 
   match_call <- match.call()
 
@@ -98,6 +98,10 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   river_name <- cdata[G2G.ID == g2g.id, ]$River.Name
   site_name <- cdata[G2G.ID == g2g.id, ]$Site.Name.
   catchment_size <- cdata[G2G.ID == g2g.id, ]$CATCHMENTSIZE
+  su <- sufi[G2G.ID == g2g.id]$SU
+  fi <- sufi[G2G.ID == g2g.id]$FI
+  su <- ifelse(su == 1, "SU", "")
+  fi <- ifelse(fi == 1, "FI", "")
   qt <- qt.data[[storm.name]][G2G.ID == g2g.id, ]
   qmed <- qt$qmed
   max_discharge <- max(c(event.data$sim[,get(paste0(g2g.id, "_Mod"))], event.data$obs[, get(paste0(g2g.id, "_Obs"))], event.data$sufi[,get(paste0(g2g.id, "_Mod"))])) ## extract max discharge
@@ -151,22 +155,22 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   # Labels and Scale adjustments
     labs(
       title = paste(storm.name, "at", g2g.id),
-      subtitle = paste("River:", river_name, "Site:", site_name, "Catchment size:", catchment_size),
+      subtitle = paste("River:", river_name, "Site:", site_name, "Catchment size:", catchment_size, "Site config:", paste0(su, fi)),
       x = "",
       y = expression(Flow ~ (m^3 ~ s^-1))) +
       scale_color_manual(values = c(
-      "Sim" = "#016fd6",
-      "Sufi" = "#f0140c",
+      "Sufi" = "#016fd6",
+      "Sim" = "#f0140c",
       "Observed" = "#1a1a1a")) +
   # Themes and Legend placement
   theme_bw() +
   scale_x_datetime(date_labels = "%d-%m-%Y") +
   theme(legend.position = c(0.8, 0.8),
         legend.title    = element_blank(),
+        legend.text = element_text(size = 10),
         aspect.ratio = 0.8,
-        plot.title = element_text(size = 9),
-        plot.subtitle = element_text(size = 7),
+        plot.title = element_text(size = 13, face = "bold"),
+        plot.subtitle = element_text(size = 10)
   )
-
   return(p)
 }

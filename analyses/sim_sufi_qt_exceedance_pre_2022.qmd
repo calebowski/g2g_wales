@@ -1,13 +1,14 @@
 ---
 title: "QT Exceedannce plots  for Storm events (Wales 2018-2021)"
-subtitle: "SUFI data"
+subtitle: "Sim & SUFI data"
 author: "Caleb Scutt"
 format:
   html:
+    page-layout: full
     toc: true
     code-fold: true
-    fig-width: 12
-    fig-height: 12
+    fig-width: 10
+    fig-height: 5
     embed-resources: true
     theme: flatly
   typst:
@@ -199,6 +200,8 @@ highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
     return(highest_qt_exceeded)
 })
 
+q_levels <- c("qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000") ## reassign q_levels back to normal
+
 
 ```
 
@@ -207,11 +210,14 @@ highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
 * These plots highlight the highest QT value exceeded at each G2G site, for both observed (left) and modelled (right).
 
 ```{r echo = FALSE}
+#| fig-width: 14
+#| fig-height: 5
+
 
 for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
-  p <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "obs")
-  q <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "mod")
-  r <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "mod")
+  p <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "obs")
+  q <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "sim")
+  r <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "sufi")
   
   print(
     (p + q + r) +
@@ -239,8 +245,12 @@ events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_20
 
 ```{r echo = FALSE}
 #| fig-align: left
+#| fig-height: 6
 
 library(patchwork)
+
+sufi_data <- fread("../data/sites_list_final.csv")
+sufi_data <- sufi_data[,.(G2G.ID, SU, FI)] ## extract cols of use
 
 
 
@@ -278,7 +288,8 @@ for (event in names(events_list_notable_catchments_pivoted)) {
         g2g.id = g2g_id,
         storm.name = event,
         cdata = wales_cdata,
-        qt.data = filtered_qt
+        qt.data = filtered_qt,
+        sufi =sufi_data
       )
     }, error = function(e) {
     })
@@ -409,6 +420,7 @@ grid.arrange(grobs = model_miss_plots)
 * CSI = critical success ratio  (closer to 1 = better)
 
 ```{r echo = TRUE}
+#| fig-height: 5
 
 
 # 1. Count the occurrences of each obs/mod combination
@@ -500,8 +512,8 @@ lapply(names(comp_dt_list), function(model_config){
     hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
     hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
     
-    tab <- hits_misses[[qt]][order(-CSI)]
-    
+    tab <- hits_misses[[qt]][!(Hits == 0 & False_Alarms == 0 & Misses == 0)]    
+    # tab <- tab[!POD == "NaN" & !FAR == "NaN" & CSI == "NaN"]
     cat(paste0(qt, "\n"))
     
     print(
@@ -528,10 +540,9 @@ Positive = mod overestimated
 ```{r echo = FALSE}
 #| fig-width: 20
 #| fig-height: 20
-
 pme_list <- lapply(events_list, lapply, peak.magnitude.error)
 
-lapply(names(pme_list), function(mod_config){
+all_pme_plots <- setNames(lapply(names(pme_list), function(mod_config) {
   sim_type <- mod_config
 
   pme_dt <- data.table(
@@ -547,14 +558,33 @@ lapply(names(pme_list), function(mod_config){
 
   storm_names <- unique(merged_pme$Storm)
 
-  p_list <- lapply(storm_names, function(name) {
-    plot.wales.pme(merged_pme, wales, storm.name = name)
-  })
+  # Wrap the inner lapply in setNames() so each plot is named by its Storm
+  p_list <- setNames(lapply(storm_names, function(name) {
+    p <- plot.wales.pme(merged_pme, wales, storm.name = name)
+    
+    # Optional: Add a subtitle to each plot so you know which model is which when combined
+    p <- p + labs(subtitle = paste("Configuration:", sim_type))
+    
+    return(p)
+  }), storm_names)
 
-  wrap_plots(p_list, ncol = 3, nrow = 3) +
-    plot_annotation(title = paste("Peak Magnitude Error by Storm:", sim_type))
-})
+  # Return the list of plots for this specific model config
+  return(p_list) 
+  
+}), names(pme_list))
 
+all_storms <- names(all_pme_plots$sim)
+
+# Create a list of side-by-side comparisons
+comparison_plots <- setNames(lapply(all_storms, function(storm) {
+  
+  combo_plot <- all_pme_plots$sim[[storm]] + all_pme_plots$sufi[[storm]] +
+    plot_annotation(title = paste("Peak Magnitude Error Comparison:", storm))
+  
+  return(combo_plot)
+}), all_storms)
+
+comparison_plots
 
 
 ```
