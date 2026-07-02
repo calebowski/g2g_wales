@@ -46,7 +46,8 @@ library(viridis)
 
 plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")) {
 
-  qt_colors <- c(
+  qt_colours <- c(
+    "None" = NA,
     "qmed"  = "#003366", 
     "q1"    = "#005ce6", 
     "q5"    = "#0099ff", 
@@ -68,12 +69,18 @@ plot.wales.exceed <- function(dt, wales, storm.name, data.type = c("obs", "mod")
     
     # place g2g site points
     geom_point(data = plot_dt, 
-               aes(x = G2G_Easting, y = G2G_Northing, color = Threshold), 
+               aes(x = G2G_Easting, y = G2G_Northing, fill = Threshold),
                size = 2.5, 
-               alpha = 0.9) +
+               alpha = 0.9,
+               stroke = 0.6,
+               shape = 21,
+               color = "black") +
         
     ## scale color=ur
-    scale_color_manual(values = qt_colors) +
+    scale_fill_manual(
+  values = qt_colours,
+  na.value = NA
+  ) +
     
     ## Force 1:1 scale geometry so Wales doesn't get stretched
     coord_sf(datum = 27700) + 
@@ -112,7 +119,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     # place g2g site points
     geom_point(data = plot_dt, 
                aes(x = G2G_Easting, y = G2G_Northing, color = pme), 
-               size = 1.5, 
+               size = 3.0, 
                alpha = 0.9) +
         
     ## scale color=ur
@@ -123,7 +130,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
       mid = "#2F2F2F",      # dark neutral (clear + visible)
       high = "#f80623",     # strong red (overestimate)
       midpoint = 0,
-    limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.99, na.rm = TRUE)),
+    limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.95, na.rm = TRUE)),
       trans = "pseudo_log",
       oob = scales::squish
     ) +
@@ -145,15 +152,20 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     theme(
       panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
       panel.grid.minor = element_blank(),
-      plot.title = element_text(face = "bold", size = 14),
-      legend.position = "right"
+      plot.title = element_text(face = "bold", size = 16),
+      legend.position = "right",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank()
     ) +
     labs(
       title = paste(storm.name, "Peak Magnitude Error"),
-      subtitle = paste("Storm:", storm.name),
-      x = "Easting (m)",
-      y = "Northing (m)",
-      color = "PME % (positive = mod overestimated)"
+      x = "",
+      y = "",
+      color = "PME %"
     )
     
   return(p)

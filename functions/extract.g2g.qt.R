@@ -6,7 +6,6 @@ read.ascii <- function(file_name) {
   
   parsed_header <- strsplit(trimws(header_lines), "\\s+")
   
-
   nX <- as.integer(parsed_header[[1]][2])
   nY <- as.integer(parsed_header[[2]][2])
   x0 <- as.numeric(parsed_header[[3]][2])
@@ -46,15 +45,14 @@ read.ascii <- function(file_name) {
 extract.at.points <- function(raster_obj, X, Y) {
   nPts <- length(X)
   if (nPts != length(Y)) {
-    stop("extract_at_points: unequal X and Y lengths")
+    stop("extract.at.points: unequal x and y lengths")
   }
   
   if (raster_obj$CenterOrCorner == "NA") {
-    stop("extract_at_points: cannot extract because file origin type is unknown (NA).")
+    stop("extract.at.points: file origin type is unknown.")
   }
   
   if (raster_obj$CenterOrCorner == "center") {
-    # Math for Center-aligned grids
     iX <- floor((X - raster_obj$x0) / raster_obj$gridSize + 0.5) + 1
     iY <- raster_obj$nY - floor((Y - raster_obj$y0) / raster_obj$gridSize + 0.5)
     
@@ -71,6 +69,7 @@ extract.at.points <- function(raster_obj, X, Y) {
   
   return(ret)
 }
+
 
 make.qt.csv <- function(qt.grid.list, cdata) {
   g2g_ids <- cdata$G2G.ID
@@ -91,4 +90,13 @@ make.qt.csv <- function(qt.grid.list, cdata) {
 
 
 
+########################################### 
+#    code to create csv table below       #
+###########################################
 
+# qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## relative paths to `*_g2g_1_nffs.dat` 
+# qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+# qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+# names(qt_grid_list) <- qt_val ## name by qt
+
+# qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata) ## can replace with whichever cdata, in this case it is cdata filtered by Region. == "Wales"

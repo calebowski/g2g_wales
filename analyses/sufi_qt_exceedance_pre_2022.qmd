@@ -60,9 +60,15 @@ source("../functions/obs.mod.stats.R")
 run_dates <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
 tsfiles <- paste0(run_dates, "/base_.dat_WA")
 tsfiles_filtered <- tsfiles[19:22] ## starts at 2018
-tspath <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
+sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
+sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
+
+
+
+
 ## read in mod and obs
-mod_ts <- read.time.series(tsfiles_filtered,tspath, output = "model")
+mod_ts <- read.time.series(tsfiles_filtered,sim_path, output = "model")
+mod_ts <- read.time.series(tsfiles_filtered,sufi_path, output = "model")
 obs_ts <- read.time.series(tsfiles_filtered,tspath, output = "observed")
 
 ## read in the events
@@ -150,25 +156,32 @@ wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but 
 
 exceed_dt <- rbindlist(merged_dat, idcol = "Threshold")
 
-
-exceeded_only <- exceed_dt[Exceeded == TRUE]
-
-exceeded_only[, Threshold := gsub("qmed", "q1", Threshold)]
+exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)]
 
 q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
 
-exceeded_only[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
+exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)]
+filtered_dt <- exceed_dt[keep_site_storm == TRUE]
 
-setorder(exceeded_only, Storm, G2G.ID, Data_Type, Threshold)
-exceeded_only[, Threshold := gsub("\\<q1\\>", "qmed", Threshold)]
-q_levels <- c("qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
-exceeded_only[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
+highest_qt_exceeded <- filtered_dt[, .(
+  Threshold = if (any(Exceeded == TRUE, na.rm = TRUE)) {
+    as.character(max(Threshold[Exceeded == TRUE], na.rm = TRUE))
+  } else {
+    "None"
+  },
+  Site         = first(Site),
+  G2G_Easting  = first(G2G_Easting),
+  G2G_Northing = first(G2G_Northing)
+), by = .(Storm, G2G.ID, Data_Type)]
 
-highest_qt_exceeded <- unique(
-  exceeded_only, 
-  by = c("Storm", "G2G.ID", "Data_Type"), 
-  fromLast = TRUE
-)
+highest_qt_exceeded[, Threshold := gsub("^q1$", "qmed", Threshold)]
+
+final_levels <- c("None", "qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+highest_qt_exceeded[, Threshold := factor(Threshold, levels = final_levels, ordered = TRUE)]
+
+# Optional: Sort it cleanly for viewing
+setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
 
 ```
 
@@ -405,11 +418,15 @@ for (qt in q_levels) {
 
 ## Peak magnitude error
 
-Specifically at sites where Qmed was exceeded <br>
+All sites that are within regions for each storm event <br>
 
-Note that the upper scale is cutoff at 99th quantile to prevent outliers controlling colour range.
+Note that the upper scale is cutoff at 95th quantile to prevent outliers controlling colour range.
+
+Positive = mod overestimated
 
 ```{r echo = FALSE}
+#| fig-width: 20
+#| fig-height: 20
 
 pme_list <- lapply(events_list, peak.magnitude.error)
 
@@ -424,16 +441,13 @@ setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
 
 merged_pme <- merge(pme_dt, qt_dt, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G_Easting, G2G_Northing)]
 
-qmed_exceeded <- exceeded_only[Threshold == "qmed" & Data_Type == "obs", paste(Storm, G2G.ID)]
-merged_pme <- merged_pme[paste(Storm, G2G.ID) %in% qmed_exceeded]
-
 storm_names <- unique(merged_pme$Storm)
 
 p_list <- lapply(storm_names, function(name) {
   plot.wales.pme(merged_pme, wales, storm.name = name)
 })
 
-wrap_plots(p_list, ncol = 2) +
+wrap_plots(p_list, ncol = 3, nrow = 3) +
   plot_annotation(title = "Peak Magnitude Error by Storm")
 
 ```
@@ -455,6 +469,7 @@ for these when it exceeded mod aswell should also be shown
 
 - have it ordered by catchment area. 
 - have for catchment if its su and sufi
-- catchment name and catchment size
+- catchment name and catchment size [[DONE]]
 - for if anything has trigerred q med (not just obs)
 - q correlation table for simulation and sufi.
+

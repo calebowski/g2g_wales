@@ -12,7 +12,7 @@ make.hydrograph <-function(event.data, g2g.id, storm.name, cdata, qt.data){
 
   river_name <- cdata[G2G.ID == g2g.id, ]$River.Name
   site_name <- cdata[G2G.ID == g2g.id, ]$Site.Name.
-  area <- cdata[G2G.ID == g2g.id, ]$Area.
+  catchment_size <- cdata[G2G.ID == g2g.id, ]$CATCHMENTSIZE
   qt <- qt.data[[storm.name]][G2G.ID == g2g.id, ]
   qmed <- qt$qmed
   max_discharge <- max(c(event.data$mod[,get(paste0(g2g.id, "_Mod"))], event.data$obs[, get(paste0(g2g.id, "_Obs"))]))
@@ -63,7 +63,7 @@ make.hydrograph <-function(event.data, g2g.id, storm.name, cdata, qt.data){
   # Labels and Scale adjustments
     labs(
       title = paste(storm.name, "at", g2g.id),
-      subtitle = paste("River:", river_name, "Site:", site_name, "Area:", area),
+      subtitle = paste("River:", river_name, "Site:", site_name, "Catchment size:", catchment_size),
       x = "",
       y = expression(Flow ~ (m^3 ~ s^-1))) +
   scale_color_manual(values = c("Model" = "red", "Observed" = "black")) +
