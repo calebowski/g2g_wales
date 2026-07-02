@@ -166,13 +166,13 @@ merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
 wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")# Read Wales constituency polygons
 wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
 
+q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
 
 highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
     exceed_dt <- rbindlist(model_config, idcol = "Threshold")
 
     exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)]
 
-    q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
     exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
 
     exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)]
@@ -243,12 +243,25 @@ events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_20
 library(patchwork)
 
 
-for (event in names(events_list_notable_catchments)) {
 
-  event_data <- events_list_notable_catchments[[event]]
+events_list_notable_catchments_pivoted <- list()
+for (event in names(events_list_notable_catchments[[1]])) {
+  sim <- events_list_notable_catchments$sim[[event]]$mod
+  sufi <- events_list_notable_catchments$sufi[[event]]$mod
+  obs <- events_list_notable_catchments$sufi[[event]]$obs
+  events_list_notable_catchments_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
+}
+
+
+
+
+
+for (event in names(events_list_notable_catchments_pivoted)) {
+
+  event_data <- events_list_notable_catchments_pivoted[[event]]
   event_plots <- list()
 
-  g2g_ids <- gsub("_Mod", "", colnames(event_data$mod)[2:length(colnames(event_data$mod))])
+  g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
 
   ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
     order(as.numeric(CATCHMENTSIZE)),
@@ -260,7 +273,7 @@ for (event in names(events_list_notable_catchments)) {
 
   for (g2g_id in g2g_ids) {
     tryCatch({
-      event_plots[[g2g_id]] <- make.hydrograph(
+      event_plots[[g2g_id]] <- make.hydrograph.sim.sufi(
         event.data = event_data,
         g2g.id = g2g_id,
         storm.name = event,
@@ -308,19 +321,16 @@ Top 10 plotted -->
 #| fig-width: 15
 #| fig-height: 20
 
-comp_dt <- dcast(
-  highest_qt_exceeded, 
-  Storm + G2G.ID + Site + G2G_Easting + G2G_Northing ~ Data_Type, 
-  value.var = "Threshold"
-) ## pivots table so mod and obs are side by side
 
-comp_dt[, rank_mod := as.numeric(mod)] ## ranked where qmed is 1, q1000 is 10
-comp_dt[, rank_obs := as.numeric(obs)]
-comp_dt[is.na(rank_mod), rank_mod := 0]
-comp_dt[is.na(rank_obs), rank_obs := 0]
+comp_dt_list <- lapply(highest_qt_exceeded_list, function(x) {
+  comp_dt <- dcast(x, Storm + G2G.ID + Site + G2G_Easting + G2G_Northing ~ Data_Type, value.var = "Threshold" )
+  comp_dt[, rank_mod := as.numeric(mod)] ## ranked where qmed is 1, q1000 is 10
+  comp_dt[, rank_obs := as.numeric(obs)]
+  comp_dt[is.na(rank_mod), rank_mod := 0]
+  comp_dt[is.na(rank_obs), rank_obs := 0]
+  comp_dt[, rank_diff := abs(rank_mod - rank_obs)] ## calculate rank differences
+})
 
-
-comp_dt[, rank_diff := abs(rank_mod - rank_obs)] ## calculate rank differences
 
 ```
 
@@ -400,35 +410,108 @@ grid.arrange(grobs = model_miss_plots)
 
 ```{r echo = TRUE}
 
-hits_misses <- list()
-for (qt in q_levels){
-  hits_misses[[qt]] <- comp_dt[, .(
-    Hits         = sum(obs >= qt & mod >= qt, na.rm = TRUE),
-    False_Alarms = sum((obs < qt | is.na(obs)) & mod >= qt, na.rm = TRUE),
-    Misses       = sum(obs >= qt & (mod < qt | is.na(mod)), na.rm = TRUE),
-    n_obs = sum(obs >= qt, na.rm = TRUE)
-  ), by = Storm] ## test over qmed
-}
+
+# 1. Count the occurrences of each obs/mod combination
+sim_heatmap_dt <- comp_dt_list$sim[obs != "None" & mod != "None", .N, by = .(obs, mod)]
+sim_heatmap_dt[, `:=`(
+  obs = droplevels(obs), ## this removed the unused "None " factor from the data.table
+  mod = droplevels(mod)
+)] ## 
+
+# 2. Plot the heatmap
+p <- ggplot(sim_heatmap_dt, aes(x = obs, y = mod, fill = N)) +
+  geom_tile(color = "white", size = 0.5) + 
+  geom_text(aes(label = N, color = N > max(N)/2), show.legend = FALSE, size = 4) +
+  scale_color_manual(values = c("black", "white")) +
+  
+  # A clean gradient (white to steelblue works well for hydrology reports)
+  scale_fill_distiller(palette = "Blues", direction = 1, name = "Count") +  # Ensure all factor levels display on the axes, even if the count is 0
+  scale_x_discrete(drop = FALSE) +
+  scale_y_discrete(drop = FALSE) +
+  
+  labs(
+    title = "Sim model vs Observed Discharge Thresholds",
+    x = "Observed Threshold (obs)",
+    y = "Modelled Threshold (SIM)"
+  ) +
+  
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(), # Removes default grid lines for a cleaner look
+    axis.text.x = element_text(angle = 45, hjust = 1) # Angles x-axis labels if they get crowded
+)
 
 
-library(knitr)
+sufi_heatmap_dt <- comp_dt_list$sufi[obs != "None" & mod != "None", .N, by = .(obs, mod)]
+sufi_heatmap_dt[, `:=`(
+  obs = droplevels(obs), ## this removed the unused "None " factor from the data.table
+  mod = droplevels(mod)
+)] ## 
 
-for (qt in q_levels) {
-  hits_misses[[qt]][, POD := Hits / (Hits + Misses)]
-  hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
-  hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
+# 2. Plot the heatmap
+q <- ggplot(sufi_heatmap_dt, aes(x = obs, y = mod, fill = N)) +
+  geom_tile(color = "white", size = 0.5) + 
+   geom_text(aes(label = N, color = N > max(N)/2), show.legend = FALSE, size = 4) +
+  scale_color_manual(values = c("black", "white")) +
   
-  tab <- hits_misses[[qt]][order(-CSI)]
+  # A clean gradient (white to steelblue works well for hydrology reports)
+  scale_fill_distiller(palette = "Blues", direction = 1, name = "Count") +  # Ensure all factor levels display on the axes, even if the count is 0
+  # Ensure all factor levels display on the axes, even if the count is 0
+  scale_x_discrete(drop = FALSE) +
+  scale_y_discrete(drop = FALSE) +
   
-  cat(paste0(qt, "\n"))
+  labs(
+    title = "SUFI model vs Observed Discharge Thresholds",
+    x = "Observed Threshold (obs)",
+    y = "Modelled Threshold (SUFI)"
+  ) +
   
-  print(
-    kable(
-      tab,
-      caption = paste("Prediction accuracy metrics for", qt)
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(), # Removes default grid lines for a cleaner look
+    axis.text.x = element_text(angle = 45, hjust = 1) # Angles x-axis labels if they get crowded
+)
+
+
+p + q
+
+
+
+
+lapply(names(comp_dt_list), function(model_config){
+
+  comp_dt <- comp_dt_list[[model_config]]  
+
+  hits_misses <- list()
+  for (qt in q_levels){
+    hits_misses[[qt]] <- comp_dt[, .(
+      Hits         = sum(obs >= qt & mod >= qt, na.rm = TRUE),
+      False_Alarms = sum((obs < qt | is.na(obs)) & mod >= qt, na.rm = TRUE),
+      Misses       = sum(obs >= qt & (mod < qt | is.na(mod)), na.rm = TRUE),
+      n_obs = sum(obs >= qt, na.rm = TRUE)
+    ), by = Storm] ## test over qmed
+  }
+
+
+  library(knitr)
+
+  for (qt in q_levels) {
+    hits_misses[[qt]][, POD := Hits / (Hits + Misses)]
+    hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
+    hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
+    
+    tab <- hits_misses[[qt]][order(-CSI)]
+    
+    cat(paste0(qt, "\n"))
+    
+    print(
+      kable(
+        tab,
+        caption = paste(model_config, "prediction accuracy metrics for", qt)
+      )
     )
-  )
-}
+  }
+})
 
 ```
 
@@ -438,7 +521,7 @@ for (qt in q_levels) {
 
 All sites that are within regions for each storm event <br>
 
-Note that the upper scale is cutoff at 95th quantile to prevent outliers controlling colour range.
+Note that the upper scale is cutoff at 98th quantile to prevent outliers controlling colour range.
 
 Positive = mod overestimated
 
@@ -446,27 +529,33 @@ Positive = mod overestimated
 #| fig-width: 20
 #| fig-height: 20
 
-pme_list <- lapply(events_list, peak.magnitude.error)
+pme_list <- lapply(events_list, lapply, peak.magnitude.error)
 
-pme_dt <- data.table(
-  unsplit_name = names(unlist(pme_list)),
-  pme = unlist(pme_list)
-)
+lapply(names(pme_list), function(mod_config){
+  sim_type <- mod_config
 
-pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
-pme_dt[, unsplit_name := NULL]
-setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
+  pme_dt <- data.table(
+    unsplit_name = names(unlist(pme_list[[mod_config]])),
+    pme = unlist(pme_list[[mod_config]])
+  )
 
-merged_pme <- merge(pme_dt, qt_dt, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G_Easting, G2G_Northing)]
+  pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
+  pme_dt[, unsplit_name := NULL]
+  setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
 
-storm_names <- unique(merged_pme$Storm)
+  merged_pme <- merge(pme_dt, qt_dt, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G_Easting, G2G_Northing)]
 
-p_list <- lapply(storm_names, function(name) {
-  plot.wales.pme(merged_pme, wales, storm.name = name)
+  storm_names <- unique(merged_pme$Storm)
+
+  p_list <- lapply(storm_names, function(name) {
+    plot.wales.pme(merged_pme, wales, storm.name = name)
+  })
+
+  wrap_plots(p_list, ncol = 3, nrow = 3) +
+    plot_annotation(title = paste("Peak Magnitude Error by Storm:", sim_type))
 })
 
-wrap_plots(p_list, ncol = 3, nrow = 3) +
-  plot_annotation(title = "Peak Magnitude Error by Storm")
+
 
 ```
 

@@ -130,7 +130,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
       mid = "#2F2F2F",      # dark neutral (clear + visible)
       high = "#f80623",     # strong red (overestimate)
       midpoint = 0,
-    limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.95, na.rm = TRUE)),
+    limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.98, na.rm = TRUE)),
       trans = "pseudo_log",
       oob = scales::squish
     ) +
