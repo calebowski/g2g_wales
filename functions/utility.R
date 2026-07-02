@@ -47,73 +47,85 @@ return(tdata)
 # notable sites will be a column in events
 make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
 
-  events_list <- list()
-  events_with_notable_sites <- c()
-  j  <- 0
-  for (i in 1:nrow(events_pre_2022)) {
-      # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
-      event <- events[i, ]
-      storm_name <- NULL
-      if (!is.na(event[, Storm_name])){
-          storm_name <- event[, Storm_name]
-      } else {
-          j <- j + 1
-          storm_name <- paste0("Unnamed_storm_", j) ## assign unnamed storms a name for reference to csv
-      }
+  make.events.helper <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites) {
 
-      # if (!is.na(event[, Notable_catchment])) {
-      #   river_string <- event$Notable_catchment
-      #   rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
-      #   river_pattern <- paste(rivers_vec, collapse = "|")
-      #   g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
-      # }
-      ## get time period of event
-
-      start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
-      end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
-      pstart <- start_date - lubridate::days(7) ## period starts 7 days before 
-      pend <- end_date + lubridate::days(7) ## period ends 7 days after
-
-      ## get geographic regions of event, using region classifer list
-      if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
-        g2g_ids <- c()
-        if (event$North) {
-            g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
+    events_list <- list()
+    events_with_notable_sites <- c()
+    j  <- 0
+    for (i in 1:nrow(events)) {
+        # events_list[[i]] <- data.table(DATE_TIME=, notable_site = )
+        event <- events[i, ]
+        storm_name <- NULL
+        if (!is.na(event[, Storm_name])){
+            storm_name <- event[, Storm_name]
+        } else {
+            j <- j + 1
+            storm_name <- paste0("Unnamed_storm_", j) ## assign unnamed storms a name for reference to csv
         }
-        if (event$Mid) {
-            g2g_ids <- c(g2g_ids, cdata[region.classifier$mid_wales, ]$G2G.ID)
+
+        # if (!is.na(event[, Notable_catchment])) {
+        #   river_string <- event$Notable_catchment
+        #   rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
+        #   river_pattern <- paste(rivers_vec, collapse = "|")
+        #   g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
+        # }
+        ## get time period of event
+
+        start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
+        end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
+        pstart <- start_date - lubridate::days(7) ## period starts 7 days before 
+        pend <- end_date + lubridate::days(7) ## period ends 7 days after
+
+        ## get geographic regions of event, using region classifer list
+        if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
+          g2g_ids <- c()
+          if (event$North) {
+              g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
+          }
+          if (event$Mid) {
+              g2g_ids <- c(g2g_ids, cdata[region.classifier$mid_wales, ]$G2G.ID)
+          }
+          if (event$South) {
+              g2g_ids <- c(g2g_ids, cdata[(region.classifier$south_wales | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
+          }
+        } else if (exclude.non.notable.sites && !is.na(event[, Notable_catchment])) {
+          river_string <- event$Notable_catchment
+          rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
+          river_pattern <- paste(rivers_vec, collapse = "|")
+          g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
+          g2g_ids <- g2g_notable_sites$G2G.ID
+          events_with_notable_sites <- c(events_with_notable_sites, storm_name)
         }
-        if (event$South) {
-            g2g_ids <- c(g2g_ids, cdata[(region.classifier$south_wales | Area. == "South East [CY]") | Area. == "South West[CY]" , ]$G2G.ID)
-        }
-      } else if (exclude.non.notable.sites && !is.na(event[, Notable_catchment])) {
-        river_string <- event$Notable_catchment
-        rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
-        river_pattern <- paste(rivers_vec, collapse = "|")
-        g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
-        g2g_ids <- g2g_notable_sites$G2G.ID
-        events_with_notable_sites <- c(events_with_notable_sites, storm_name)
-      }
-      ## filter ts
+        ## filter ts
 
-      event_mod <- mod[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
-      
-      ## print the sites missing
-      expected_cols <- paste0(g2g_ids, "_Mod")
+        event_mod <- mod[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
+        
+        ## print the sites missing
+        expected_cols <- paste0(g2g_ids, "_Mod")
 
-      missing_cols <- setdiff(expected_cols, colnames(mod))
+        missing_cols <- setdiff(expected_cols, colnames(mod))
 
-      cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
+        cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
 
-      event_obs <- obs[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
-      events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
+        event_obs <- obs[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(obs) %in% c("DATE_TIME", paste0(g2g_ids, "_Obs")), with = FALSE] 
+        events_list[[storm_name]] <- list(mod = event_mod, obs = event_obs)
+    }
+
+    if (exclude.non.notable.sites) {
+      events_list <- events_list[events_with_notable_sites]
+    }
+
+    return(events_list)
   }
 
-  if (exclude.non.notable.sites) {
-    events_list <- events_list[events_with_notable_sites]
+  if (inherits(mod, "list") && all(names(mod) %in% c("sufi", "sim"))) {
+    sim_events <- make.events.helper(mod = mod$sim, obs, events,cdata, region.classifier, exclude.non.notable.sites)
+    sufi_events <- make.events.helper(mod = mod$sufi, obs, events,cdata, region.classifier, exclude.non.notable.sites)
+    events_list_master <- list(sim = sim_events, sufi = sufi_events)
+  } else {
+    events_list_master <- make.events.helper(mod = mod, obs, events,cdata, region.classifier, exclude.non.notable.sites)
   }
-
-  return(events_list)
+  return(events_list_master)
 }
 
 

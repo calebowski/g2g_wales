@@ -57,9 +57,10 @@ source("../functions/obs.mod.stats.R")
 
 ```{r, include = FALSE}
 ## get g2g simulation file paths (this is Sim)
-run_dates <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
-tsfiles <- paste0(run_dates, "/base_.dat_WA")
-tsfiles_filtered <- tsfiles[19:22] ## starts at 2018
+sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
+sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
+sim_files <- paste0(sim_runs, "/base_.dat_WA")
+sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
 sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
 sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
 
@@ -67,9 +68,11 @@ sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
 
 
 ## read in mod and obs
-mod_ts <- read.time.series(tsfiles_filtered,sim_path, output = "model")
-mod_ts <- read.time.series(tsfiles_filtered,sufi_path, output = "model")
-obs_ts <- read.time.series(tsfiles_filtered,tspath, output = "observed")
+sim_ts <- read.time.series(sim_files[19:22],sim_path, output = "model")
+sufi_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "model")
+obs_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "observed")
+
+mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
 
 ## read in the events
 events <- fread("../data/notable_events.csv")
@@ -94,6 +97,7 @@ region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000,
 
 ## make list for each event, with sublist for mod & obs
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
+
 ```
 
 
@@ -120,19 +124,28 @@ qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
 * If mod OR obs discharge is >= QT, TRUE is returned for that column, else FALSE
 
 ```{r, include = FALSE}
-filtered_qt <- lapply(events_list, filter.qt, qt = qt_dt)
+filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only need to extract first list item because sim and sufi extract identical
 
-max_discharge_qt <- list()
+sim_max_discharge_qt <- list()
 for (t_val in qt_val){
-    max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
+    sim_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
         extract.peak.discharge(event_mod_obs, event_qt,  t_val)
-    }, events_list, filtered_qt)
+    }, events_list$sim, filtered_qt)
 }
 
+sufi_max_discharge_qt <- list()
+for (t_val in qt_val){
+    sufi_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
+        extract.peak.discharge(event_mod_obs, event_qt,  t_val)
+    }, events_list$sufi, filtered_qt)
+}
 
-qt_exceeded <- lapply(max_discharge_qt,lapply, qt.exceed)
+max_discharge_qt <- list(sim = sim_max_discharge_qt, sufi = sufi_max_discharge_qt)
 
-qt_exceeded_dt_list <- lapply(qt_exceeded, function(qt){
+qt_exceeded <- lapply(max_discharge_qt,lapply, lapply, qt.exceed)
+
+
+qt_exceeded_dt_list <- lapply(qt_exceeded, lapply, function(qt){
     dt_exceed <- data.table(
     unsplit_name     = names(unlist(qt)),
     Exceeded = unlist(qt)
@@ -144,7 +157,7 @@ qt_exceeded_dt_list <- lapply(qt_exceeded, function(qt){
     return(dt_exceed)
 })
 
-merged_dat <- lapply(qt_exceeded_dt_list, merge, qt_dt, by = "G2G.ID")
+merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
 
 ```
 
@@ -154,34 +167,38 @@ wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_20
 wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
 
 
-exceed_dt <- rbindlist(merged_dat, idcol = "Threshold")
+highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
+    exceed_dt <- rbindlist(model_config, idcol = "Threshold")
 
-exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)]
+    exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)]
 
-q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
-exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
+    q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+    exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
 
-exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)]
-filtered_dt <- exceed_dt[keep_site_storm == TRUE]
+    exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)]
+    filtered_dt <- exceed_dt[keep_site_storm == TRUE]
 
-highest_qt_exceeded <- filtered_dt[, .(
-  Threshold = if (any(Exceeded == TRUE, na.rm = TRUE)) {
-    as.character(max(Threshold[Exceeded == TRUE], na.rm = TRUE))
-  } else {
-    "None"
-  },
-  Site         = first(Site),
-  G2G_Easting  = first(G2G_Easting),
-  G2G_Northing = first(G2G_Northing)
-), by = .(Storm, G2G.ID, Data_Type)]
+    highest_qt_exceeded <- filtered_dt[, .(
+      Threshold = if (any(Exceeded == TRUE, na.rm = TRUE)) {
+        as.character(max(Threshold[Exceeded == TRUE], na.rm = TRUE))
+      } else {
+        "None"
+      },
+      Site         = first(Site),
+      G2G_Easting  = first(G2G_Easting),
+      G2G_Northing = first(G2G_Northing)
+    ), by = .(Storm, G2G.ID, Data_Type)]
 
-highest_qt_exceeded[, Threshold := gsub("^q1$", "qmed", Threshold)]
+    highest_qt_exceeded[, Threshold := gsub("^q1$", "qmed", Threshold)]
 
-final_levels <- c("None", "qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
-highest_qt_exceeded[, Threshold := factor(Threshold, levels = final_levels, ordered = TRUE)]
+    final_levels <- c("None", "qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+    highest_qt_exceeded[, Threshold := factor(Threshold, levels = final_levels, ordered = TRUE)]
 
-# Optional: Sort it cleanly for viewing
-setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
+    # Optional: Sort it cleanly for viewing
+    setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
+    return(highest_qt_exceeded)
+})
+
 
 ```
 
@@ -191,12 +208,13 @@ setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
 
 ```{r echo = FALSE}
 
-for (name in unique(highest_qt_exceeded$Storm)) {
-  p <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "obs")
-  q <- plot.wales.exceed(highest_qt_exceeded, wales, storm.name = name, "mod")
+for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
+  p <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "obs")
+  q <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "mod")
+  r <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "mod")
   
   print(
-    (p + q) +
+    (p + q + r) +
       plot_annotation(title = paste("Storm:", name))
   )
 }
