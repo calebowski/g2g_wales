@@ -77,7 +77,7 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
         pend <- end_date + lubridate::days(7) ## period ends 7 days after
 
         ## get geographic regions of event, using region classifer list
-        if (!exclude.non.notable.sites || is.na(event[, Notable_catchment])) {
+        if ((!exclude.non.notable.sites || is.na(event[, Notable_catchment])) && !is.null(region.classifier)) {
           g2g_ids <- c()
           if (event$North) {
               g2g_ids <- c(g2g_ids, cdata[region.classifier$north_wales | Area. == "Northern [CY]" , ]$G2G.ID)
@@ -92,9 +92,11 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
           river_string <- event$Notable_catchment
           rivers_vec <- strsplit(river_string, "\\s*,\\s*")[[1]]
           river_pattern <- paste(rivers_vec, collapse = "|")
-          g2g_notable_sites <- wales_cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
+          g2g_notable_sites <- cdata[grepl(river_pattern, River.Name, ignore.case = TRUE), ]
           g2g_ids <- g2g_notable_sites$G2G.ID
           events_with_notable_sites <- c(events_with_notable_sites, storm_name)
+        } else if (is.null(region.classifier)){
+          g2g_ids <- cdata$G2G.ID
         }
         ## filter ts
 
@@ -103,7 +105,7 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
         ## print the sites missing
         expected_cols <- paste0(g2g_ids, "_Mod")
 
-        missing_cols <- setdiff(expected_cols, colnames(mod))
+        missing_cols <- setdiff(expected_cols, colnames(mod)) 
 
         cat("The following sites are missing from g2g model output, but present in catchment data:",missing_cols, "\n")
 

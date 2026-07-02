@@ -92,12 +92,15 @@ We subset the time series 7 days either side of the event beginning/end. <br>
 
 ```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
 ## classify regions based on northing (can be adjusted)
-region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
-                          mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
-                          south_wales= wales_cdata$WISKI.NORTHING <= 230000)
+# region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
+#                           mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
+#                           south_wales= wales_cdata$WISKI.NORTHING <= 230000)
 
-## make list for each event, with sublist for mod & obs
-events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
+# ## make list for each event, with sublist for mod & obs
+# events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
+
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
 
 ```
 
@@ -240,7 +243,7 @@ QGIS. download
 #| fig-width: 15
 #| fig-height: 10
 source("../functions/make.hydrograph.r")
-events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = TRUE)
+events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = TRUE)
 
 ```
 

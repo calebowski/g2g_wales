@@ -146,7 +146,25 @@ plot.wales.pme <- function(dt, wales, storm.name) {
       midpoint = 0,
     limits = c(min(dt$pme, na.rm = TRUE), quantile(dt$pme, 0.98, na.rm = TRUE)),
       trans = "pseudo_log",
-      oob = scales::squish
+      oob = scales::squish,
+      breaks = function(x) {
+        # x is a vector of your current limits: c(min, max)
+        # This dynamically creates breaks based on your actual data limits
+        val_min <- round(x[1])
+        val_max <- round(x[2])
+        
+        # Create a neat set of intermediate breaks (adjust these numbers to fit your typical PME range)
+        intermediates <- c(-75, -50, -25, 0, 25, 50, 100, 250)
+        
+        # Combine the min, intermediates, and max, keeping only values within the limits
+        valid_breaks <- intermediates[intermediates >= val_min & intermediates <= val_max]
+        unique(sort(c(val_min, valid_breaks, val_max)))
+      },
+      
+      # 2. Keep the custom labels for the + sign
+      labels = function(x) {
+        ifelse(x > 0, paste0("+", x), as.character(x))
+      }
     ) +
 
     
@@ -181,7 +199,15 @@ plot.wales.pme <- function(dt, wales, storm.name) {
       x = "",
       y = "",
       color = "PME %"
-    )
+    ) +
+    guides(color = guide_colorbar(
+      title.position = "top", 
+      barheight = unit(3, "in"), 
+      barwidth = unit(0.2, "in"),
+      ticks.linewidth = 1,
+      draw.ulim = TRUE, 
+      draw.llim = TRUE
+    ))
     
   return(p)
 }
