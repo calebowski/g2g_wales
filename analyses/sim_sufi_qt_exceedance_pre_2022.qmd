@@ -164,7 +164,8 @@ merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
 
 
 ```{r ECHO = FALSE, warning = FALSE, message = FALSE, include = FALSE}
-wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")# Read Wales constituency polygons
+# wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")# Read Wales constituency polygons
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
 
 q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
@@ -215,7 +216,7 @@ q_levels <- c("qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", 
 
 
 for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
-  p <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "obs")
+  p <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "obs")
   q <- plot.wales.exceed(highest_qt_exceeded_list$sim, wales, storm.name = name, "sim")
   r <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = name, "sufi")
   
@@ -249,10 +250,6 @@ events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_20
 
 library(patchwork)
 
-sufi_data <- fread("../data/sites_list_final.csv")
-sufi_data <- sufi_data[,.(G2G.ID, SU, FI)] ## extract cols of use
-
-
 
 events_list_notable_catchments_pivoted <- list()
 for (event in names(events_list_notable_catchments[[1]])) {
@@ -264,60 +261,120 @@ for (event in names(events_list_notable_catchments[[1]])) {
 
 
 
+# for (event in names(events_list_notable_catchments_pivoted)) {
 
+#   event_data <- events_list_notable_catchments_pivoted[[event]]
+#   event_plots <- list()
+
+#   g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
+
+#   ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
+#     order(as.numeric(CATCHMENTSIZE)),
+#     .SD,
+#     by = River.Name
+#   ]
+
+#   g2g_ids <- ord_catchment_size_river$G2G.ID
+
+#   for (g2g_id in g2g_ids) {
+#     tryCatch({
+#       event_plots[[g2g_id]] <- make.hydrograph.sim.sufi(
+#         event.data = event_data,
+#         g2g.id = g2g_id,
+#         storm.name = event,
+#         cdata = wales_cdata,
+#         qt.data = filtered_qt,
+#         sufi =sufi_data
+#       )
+#     }, error = function(e) {
+#     })
+#   }
+
+#   event_plots <- event_plots[!sapply(event_plots, is.null)]
+
+#   if (length(event_plots) > 0) {
+
+#     plot_river <- split(event_plots, ord_catchment_size_river$River.Name)
+
+#     for (i in seq_along(plot_river)) {
+#       river_plot_name <- names(plot_river)[i]
+#       current_chunk <- plot_river[[i]]
+
+#       river_patch <- wrap_plots(current_chunk, ncol = 2) +
+#         plot_annotation(
+#           title = paste("Storm:", event, "River:", river_plot_name),
+#           theme = theme(plot.title = element_text(size = 14, face = "bold"))
+#         )
+
+#       print(river_patch)
+#     }
+#   }
+# }
+
+```
+
+
+```{r echo=FALSE, results='asis'}
 
 for (event in names(events_list_notable_catchments_pivoted)) {
 
   event_data <- events_list_notable_catchments_pivoted[[event]]
-  event_plots <- list()
 
+  # Print the main event section header (HTML heading prevents bracket bugs)
+  cat(paste0("\n\n<h3>Storm Event: ", event, "</h3>\n\n"))
+
+  # Extract G2G IDs
   g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
 
-  ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
-    order(as.numeric(CATCHMENTSIZE)),
-    .SD,
-    by = River.Name
-  ]
+  # Ensure CATCHMENTSIZE is numeric
+  ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids]
+  ord_catchment_size_river[, CATCHMENTSIZE := as.numeric(CATCHMENTSIZE)]
 
-  g2g_ids <- ord_catchment_size_river$G2G.ID
+  # Find files
+  ev_files <- data.table(
+    path = list.files(
+      path = file.path("../data/figures/hydrographs"),
+      pattern = "\\.png$",
+      full.names = TRUE
+    )
+  )
 
-  for (g2g_id in g2g_ids) {
-    tryCatch({
-      event_plots[[g2g_id]] <- make.hydrograph.sim.sufi(
-        event.data = event_data,
-        g2g.id = g2g_id,
-        storm.name = event,
-        cdata = wales_cdata,
-        qt.data = filtered_qt,
-        sufi =sufi_data
-      )
-    }, error = function(e) {
-    })
-  }
+  if (nrow(ev_files) == 0) next
 
-  event_plots <- event_plots[!sapply(event_plots, is.null)]
+  ev_files[, name := tools::file_path_sans_ext(basename(path))]
+  ev_files[, c("event_file", "g2g_id") := tstrsplit(name, "__", fixed = TRUE)]
+  ev_files[, g2g_id := as.character(g2g_id)]
 
-  if (length(event_plots) > 0) {
+  ev_files <- ev_files[event_file == event]
+  if (nrow(ev_files) == 0) next
 
-    plot_river <- split(event_plots, ord_catchment_size_river$River.Name)
+  ev_files <- merge(
+    ev_files,
+    ord_catchment_size_river[, .(G2G.ID, River.Name, CATCHMENTSIZE)],
+    by.x = "g2g_id",
+    by.y = "G2G.ID",
+    all = FALSE
+  )
 
-    for (i in seq_along(plot_river)) {
-      river_plot_name <- names(plot_river)[i]
-      current_chunk <- plot_river[[i]]
+  setorder(ev_files, River.Name, CATCHMENTSIZE)
 
-      river_patch <- wrap_plots(current_chunk, ncol = 2) +
-        plot_annotation(
-          title = paste("Storm:", event, "River:", river_plot_name),
-          theme = theme(plot.title = element_text(size = 14, face = "bold"))
-        )
-
-      print(river_patch)
+  # Generate HTML sub-headers and inject side-by-side images
+  for (rv in unique(ev_files$River.Name)) {
+    
+    # Using an HTML <h4> tag instead of #### protects the brackets in TAFF[SE](WA)
+    cat(paste0("\n\n<h4>River System: ", rv, "</h4>\n\n"))
+    
+    paths <- ev_files[River.Name == rv, path]
+    
+    # Wrap images in a simple div container, and set each image to 49% width 
+    # so they naturally sit side-by-side
+    cat("<div style='width: 100%;'>\n")
+    for (img_path in paths) {
+      cat(paste0("<img src='", img_path, "' style='width: 49%; display: inline-block; padding: 2px;'>\n"))
     }
+    cat("</div>\n\n")
   }
 }
-
-## perhaps highlight on map next to this where g2g site is?
-
 ```
 
 <!-- ## Hydrographs (obs vs modelled comparison)
@@ -514,7 +571,7 @@ lapply(names(comp_dt_list), function(model_config){
     
     tab <- hits_misses[[qt]][!(Hits == 0 & False_Alarms == 0 & Misses == 0)]    
     # tab <- tab[!POD == "NaN" & !FAR == "NaN" & CSI == "NaN"]
-    cat(paste0(qt, "\n"))
+    # cat(paste0(qt, "\n"))
     
     print(
       kable(
@@ -531,15 +588,17 @@ lapply(names(comp_dt_list), function(model_config){
 
 ## Peak magnitude error
 
-All sites that are within regions for each storm event <br>
+All sites that are within regions affected for each storm event <br>
 
-Note that the upper scale is cutoff at 98th quantile to prevent outliers controlling colour range.
+Note that the upper scale is cutoff at 98th quantile to prevent outliers controlling colour range. <br>
 
-Positive = mod overestimated
+Grey sites = missing data. <br>
+
+Positive = mod overestimated <br>
 
 ```{r echo = FALSE}
 #| fig-width: 20
-#| fig-height: 20
+#| fig-height: 10
 pme_list <- lapply(events_list, lapply, peak.magnitude.error)
 
 all_pme_plots <- setNames(lapply(names(pme_list), function(mod_config) {
@@ -588,25 +647,4 @@ comparison_plots
 
 
 ```
-
-for these when it exceeded mod aswell should also be shown
-
-- so it should be when they 
-- drop northing and easting on plots
-- mod = overestimated at top once
-- 
-
-## correlation plot
-
-
-- add all the plots for the qmeds that got exceeded: 
-- make a glossary of 
-
-# For friday:
-
-- have it ordered by catchment area. 
-- have for catchment if its su and sufi
-- catchment name and catchment size [[DONE]]
-- for if anything has trigerred q med (not just obs)
-- q correlation table for simulation and sufi.
 

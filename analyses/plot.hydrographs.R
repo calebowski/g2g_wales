@@ -12,15 +12,12 @@ library(lubridate)
 library(gtools)
 
 
-## get g2g simulation file paths (this is Sim)
 sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
 sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
 sim_files <- paste0(sim_runs, "/base_.dat_WA")
 sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
 sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
 sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
-
-
 
 
 ## read in mod and obs
@@ -70,7 +67,7 @@ filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only n
 
 for (event in names(events_list_pivoted)) {
 
-  cat("Beginning event plotting:", event)
+  cat("Beginning event plotting:", event,"...\n")
   event_data <- events_list_pivoted[[event]]
   g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
   ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
@@ -91,7 +88,7 @@ for (event in names(events_list_pivoted)) {
         sufi =sufi_data
       )
       ggsave(
-        filename = file.path(plot_directory, paste0(event, "_", g2g_id, ".png")),
+        filename = file.path(plot_directory, paste0(event, "__", g2g_id, ".png")),
         plot = event_plot,
         width = 8,
         height = 6,

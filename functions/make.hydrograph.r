@@ -155,7 +155,7 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   # Labels and Scale adjustments
     labs(
       title = paste(storm.name, "at", g2g.id),
-      subtitle = paste("River:", river_name, "Site:", site_name, "Catchment size:", catchment_size, "Site config:", paste0(su, fi)),
+      subtitle = paste("River:", river_name, "Site:", site_name, "\nCatchment size:", catchment_size, "Site config:", paste0(su, fi)),
       x = "",
       y = expression(Flow ~ (m^3 ~ s^-1))) +
       scale_color_manual(values = c(
@@ -169,8 +169,8 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
         legend.title    = element_blank(),
         legend.text = element_text(size = 10),
         aspect.ratio = 0.8,
-        plot.title = element_text(size = 13, face = "bold"),
-        plot.subtitle = element_text(size = 10)
+        plot.title = element_text(size = 16, face = "bold"),
+        plot.subtitle = element_text(size = 15)
   )
   return(p)
 }
