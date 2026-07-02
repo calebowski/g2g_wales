@@ -112,7 +112,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
     # place g2g site points
     geom_point(data = plot_dt, 
                aes(x = G2G_Easting, y = G2G_Northing, color = pme), 
-               size = 3.5, 
+               size = 1.5, 
                alpha = 0.9) +
         
     ## scale color=ur
