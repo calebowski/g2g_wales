@@ -711,9 +711,16 @@ worst_pme_sufi <- sufi_pme_dt_list$sufi[, .(
 bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]$G2G.ID
 bad_g2g_sites_sufi <- worst_pme_sufi[order(mean_pme)][1:20]$G2G.ID
 bad_in_both <- intersect(bad_g2g_sites_sim,bad_g2g_sites_sufi)
-
+sufi_data <- fread("../data/sites_list_final.csv")
+sufi_data <- sufi_data[,.(G2G.ID, SU, FI)] ## extract cols of use
 source("../functions/get.stats.R")
 stats <- list()
+long_bad_hydrographs <- list()
+
+if (!dir.exists("../data/figures/long_bad_hydrographs")){
+  dir.create("../data/figures/long_bad_hydrographs")
+}
+path <- "../data/figures/long_bad_hydrographs"
 for (g2g_id in bad_in_both){
   sim <- mod_ts$sim[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
   sufi <- mod_ts$sufi[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
@@ -722,44 +729,17 @@ for (g2g_id in bad_in_both){
   stats[[g2g_id]] <- list()
   stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
   stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
+
+  long_bad_hydrographs[[g2g_id]] <- make.hydrograph.sim.sufi(event, g2g.id = g2g_id, storm.name = "", cdata = wales_cdata, qt.data = filtered_qt[[1]], sufi = sufi_data)
+  ggsave(filename = file.path(path, paste0(g2g_id, "__2018_2022_hydrograph.png")) ,
+          plot = long_bad_hydrographs[[g2g_id]], width = 12,
+          height = 6,
+          units = "in",
+          dpi = 300)
 }
 
 
 
-
-mod_ts[[1]][.(paste0(bad_g2g_sites[1], "_Mod"))]
-
-
-
-mod_name <- paste0(bad_g2g_sites[1], "_Mod")
-mod <- mod_ts[[1]][, c("DATE_TIME", mod_name), with = FALSE]
-obs <- obs_ts[, .(DATE_TIME = get("DATE_TIME"), flow =get(paste0(bad_g2g_sites[1], "_Obs")))]
-
-
-event.data <- list()
-
-
-
-
-
-
-
-# pme_metdata <- setNames(lapply(names(pme_list), function(mod_config) {
-#   sim_type <- mod_config
-
-#   pme_dt <- data.table(
-#     unsplit_name = names(unlist(pme_list[[mod_config]])),
-#     pme = unlist(pme_list[[mod_config]])
-#   )
-
-#   pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
-#   pme_dt[, unsplit_name := NULL]
-#   setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
-
-#   merged_pme <- merge(pme_dt, wales_cdata, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G.Easting, G2G.Northing)]
-
-#   storm_names <- unique(merged_pme$Storm)
-# }), names(pme_list))
 
 
 ```
