@@ -1,31 +1,31 @@
-get.stats <- function(tsdat, obs, sstart = ISOdatetime(1066,1,1,0,0,0), send = ISOdatetime(2999,1,1,0,0,0), bias_correct = FALSE, removeStart = NA, removeEnd = NA, excludeDF = NULL, exclField = "exclude") {
+get.stats <- function(mod, obs, sstart = ISOdatetime(1066,1,1,0,0,0), send = ISOdatetime(2999,1,1,0,0,0), bias_correct = FALSE, removeStart = NA, removeEnd = NA, excludeDF = NULL, exclField = "exclude") {
   
-  sstart = max(min(obs$DATE_TIME, na.rm = TRUE), min(tsdat$DATE_TIME, na.rm = TRUE), sstart)
-  send   = min(max(obs$DATE_TIME, na.rm = TRUE), max(tsdat$DATE_TIME, na.rm = TRUE), send)
+  sstart = max(min(obs$DATE_TIME, na.rm = TRUE), min(mod$DATE_TIME, na.rm = TRUE), sstart)
+  send   = min(max(obs$DATE_TIME, na.rm = TRUE), max(mod$DATE_TIME, na.rm = TRUE), send)
   
   obs   = obs[obs$DATE_TIME >= sstart & obs$DATE_TIME <= send, ]
-  tsdat = tsdat[tsdat$DATE_TIME >= sstart & tsdat$DATE_TIME <= send, ]
+  mod = mod[mod$DATE_TIME >= sstart & mod$DATE_TIME <= send, ]
   
-  if (!is.na(removeStart) & !is.na(removeEnd)) {
-    obs   = obs[obs$DATE_TIME <= removeStart | obs$DATE_TIME >= removeEnd, ]
-    tsdat = tsdat[tsdat$DATE_TIME <= removeStart | tsdat$DATE_TIME >= removeEnd, ]
-  }
+  # if (!is.na(removeStart) & !is.na(removeEnd)) {
+  #   obs   = obs[obs$DATE_TIME <= removeStart | obs$DATE_TIME >= removeEnd, ]
+  #   mod = mod[mod$DATE_TIME <= removeStart | mod$DATE_TIME >= removeEnd, ]
+  # }
   
-  if (!is.null(excludeDF)) {
-    message("Subsetting times with excludeDF field: ", exclField) # Fixed printp() -> message()
-    if (!(nrow(obs) == nrow(tsdat) && all(obs$DATE_TIME == tsdat$DATE_TIME))) {
-      stop("get_stats: check times here - excludeDF")
-    }
-    dateTimes = as.Date(obs$DATE_TIME)
+  # if (!is.null(excludeDF)) {
+  #   message("Subsetting times with excludeDF field: ", exclField) # Fixed printp() -> message()
+  #   if (!(nrow(obs) == nrow(mod) && all(obs$DATE_TIME == mod$DATE_TIME))) {
+  #     stop("get_stats: check times here - excludeDF")
+  #   }
+  #   dateTimes = as.Date(obs$DATE_TIME)
     
-    dates_to_exclude = excludeDF$date[ excludeDF[[exclField]] == TRUE ]
-    m_excludeDF      = dateTimes %in% dates_to_exclude
+  #   dates_to_exclude = excludeDF$date[ excludeDF[[exclField]] == TRUE ]
+  #   m_excludeDF      = dateTimes %in% dates_to_exclude
     
-  } else {
-    m_excludeDF = rep(FALSE, nrow(obs))
-  }
+  # } else {
+  #   m_excludeDF = rep(FALSE, nrow(obs))
+  # }
   
-  if (nrow(obs) != nrow(tsdat)) {
+  if (nrow(obs) != nrow(mod)) {
     stop("Number of timesteps in mod not equal to obs")
   }
 
@@ -39,18 +39,18 @@ get.stats <- function(tsdat, obs, sstart = ISOdatetime(1066,1,1,0,0,0), send = I
     obs_col <- paste0(site, "_Obs")
     mod_col <- paste0(site, "_Mod") 
     
-    if (!(mod_col %in% names(tsdat))) {
+    if (!(mod_col %in% names(mod))) {
       warning(paste("Model data missing for site:", site, "- Skipping."))
       next
     }
     
     ob  = obs[[obs_col]]
-    mod = tsdat[[mod_col]]
+    mod = mod[[mod_col]]
     
     mod[mod < 0] = NA
     ob[ob < 0]   = NA
     
-    m   <- is.na(ob) | is.na(mod) | m_excludeDF
+    m   <- is.na(ob) | is.na(mod) 
     ob  = ob[!m]
     mod = mod[!m]
     

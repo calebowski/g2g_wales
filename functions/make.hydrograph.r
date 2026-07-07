@@ -102,9 +102,9 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   fi <- sufi[G2G.ID == g2g.id]$FI
   su <- ifelse(su == 1, "SU", "")
   fi <- ifelse(fi == 1, "FI", "")
-  qt <- qt.data[[storm.name]][G2G.ID == g2g.id, ]
+  qt <- qt.data[G2G.ID == g2g.id, ]
   qmed <- qt$qmed
-  max_discharge <- max(c(event.data$sim[,get(paste0(g2g.id, "_Mod"))], event.data$obs[, get(paste0(g2g.id, "_Obs"))], event.data$sufi[,get(paste0(g2g.id, "_Mod"))])) ## extract max discharge
+  max_discharge <- max(c(event.data$sim[,get(paste0(g2g.id, "_Mod"))], event.data$obs[, get(paste0(g2g.id, "_Obs"))], event.data$sufi[,get(paste0(g2g.id, "_Mod"))]), na.rm=TRUE) ## extract max discharge
   qt_only_vals <-  qt[, .(q5, q10, q25, q50, q75, q100, q200, q250, q1000)]
   highest_qt_exceeded_index <- which(max_discharge > qt_only_vals)
   qt_vals <- qt_only_vals[, highest_qt_exceeded_index, with = FALSE]
@@ -174,3 +174,5 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   )
   return(p)
 }
+
+

@@ -11,13 +11,14 @@ library(ggplot2)
 library(lubridate)
 library(gtools)
 
-
 sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
 sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
 sim_files <- paste0(sim_runs, "/base_.dat_WA")
 sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
 sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
 sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
+
+
 
 
 ## read in mod and obs
@@ -27,21 +28,16 @@ obs_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "observed")
 
 mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
 
-
+## read in the events
 events <- fread("../data/notable_events.csv")
 events_pre_2022 <- events[Year <= 2021,]
 ## read in the catchment metadata
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
-
+## filter by wales
 wales_cdata <- catchments[Region. == "Wales", ]
 
-
-region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
-                          mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
-                          south_wales= wales_cdata$WISKI.NORTHING <= 230000)
-
 ## make list for each event, with sublist for mod & obs
-events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
 
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
@@ -62,7 +58,7 @@ for (event in names(events_list[[1]])) {
   events_list_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
 }
 
-filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only need to extract first list item because sim and sufi extract identical
+filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]][[1]] ## only need to extract first list item because sim and sufi extract identical and storms are identical
 
 
 for (event in names(events_list_pivoted)) {

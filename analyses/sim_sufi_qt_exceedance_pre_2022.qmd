@@ -48,13 +48,13 @@ source("../functions/obs.mod.stats.R")
 ```
 
 
-## Read in data
+<!-- ## Read in data
 
 * `mod_ts` is the g2g modelled flow data at each g2g site
 * `obs_ts` is the observed flow data at each g2g site
 * `events` are the notable storm events in Wales (`events_pre_2022` are events we have data for)
 * `catchments` are the metadata for each catchment (region, area, river name, easting/northing, g2g.id). `wales_cdata` is this filtered by just Welsh catchments
-* The following sites are missing from g2g model output, but present in catchment data: 055025_TG_325_Mod, 57809_Mod 60005_Mod, 066004_TG_9512_Mod, 067005_TG_116_Mod, 067023_TG_117_Mod, 055025_TG_325_Mod, 60005_Mod.
+* The following sites are missing from g2g model output, but present in catchment data: 055025_TG_325_Mod, 57809_Mod 60005_Mod, 066004_TG_9512_Mod, 067005_TG_116_Mod, 067023_TG_117_Mod, 055025_TG_325_Mod, 60005_Mod. -->
 
 ```{r, include = FALSE}
 ## get g2g simulation file paths (this is Sim)
@@ -85,9 +85,9 @@ wales_cdata <- catchments[Region. == "Wales", ]
 ```
 
 
-Here we make a nested list, with top level of list representing each storm event from `events`. <br>
+<!-- Here we make a nested list, with top level of list representing each storm event from `events`. <br>
 We subset Wales into North, Mid and South by these Northing values (can be adjusted). These were used because some sites were not categorised by Area (e.g South East [CY]) <br>
-We subset the time series 7 days either side of the event beginning/end. <br>
+We subset the time series 7 days either side of the event beginning/end. <br> -->
 
 
 ```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
@@ -101,15 +101,14 @@ We subset the time series 7 days either side of the event beginning/end. <br>
 
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
 
-
 ```
 
 
-## Read in QT data
+<!-- ## Read in QT data
 
 QT data is extracted using functions from `functions/griddedData_class_jrw.py` converted to R.
 These functions can be re-used when more catchment data is added.
-Note that these QT values are calculated pre-2022.
+Note that these QT values are calculated pre-2022. -->
 
 ```{r, message = FALSE, include = FALSE}
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
@@ -124,8 +123,7 @@ qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
 
 ## Extract the peak discharge at each flood event
 
-* Peak discharge extracted at each event at each g2g site for both modelled and observed, then compared to each QT.
-* If mod OR obs discharge is >= QT, TRUE is returned for that column, else FALSE
+* Peak discharge extracted at each event at each g2g site for observed (what actually happened) and modelled (sim and sufi).
 
 ```{r, include = FALSE}
 filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only need to extract first list item because sim and sufi extract identical
@@ -211,7 +209,7 @@ q_levels <- c("qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", 
 
 ## QT Exceeded plots
 
-* These plots highlight the highest QT value exceeded at each G2G site, for both observed (left) and modelled (right).
+* The following plots show the highest flow threshold exceeded at each site, for each storm.
 
 ```{r echo = FALSE}
 #| fig-width: 14
@@ -225,19 +223,19 @@ for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
 
   pqr <- list(obs = p, sim = q,  sufi = r)
 
-  lapply(names(pqr), function(config){
+  # lapply(names(pqr), function(config){
 
-    plot <- pqr[[config]]
+  #   plot <- pqr[[config]]
 
-    ggsave(
-          filename = file.path(paste0("../data/figures/qt_exceed_maps"), paste0(name, "_", config, "_qt_exceed_map", ".png")),
-          plot = plot,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300
-        )
-  })
+  #   ggsave(
+  #         filename = file.path(paste0("../data/figures/qt_exceed_maps"), paste0(name, "_", config, "_qt_exceed_map", ".png")),
+  #         plot = plot,
+  #         width = 8,
+  #         height = 6,
+  #         units = "in",
+  #         dpi = 300
+  #       )
+  # })
 
   print(
     (p + q + r) +
@@ -250,10 +248,6 @@ for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
 ## Notable catchments hydrographs
 
 These are hydrographs taken from the notable catchments highlighted by NRW for each storm event. <br>
-
-For Callum, show a map highlighting the catchments to see exactly where 
-
-QGIS. download 
 
 ```{r echo = FALSE, message = FALSE, warning = FALSE, include = FALSE}
 #| fig-width: 15
@@ -352,7 +346,7 @@ for (event in names(events_list_notable_catchments_pivoted)) {
   # Find files
   ev_files <- data.table(
     path = list.files(
-      path = file.path("../data/figures/hydrographs"),
+      path = file.path("../data/figures/wales_events_2018_2021_hydrographs"),
       pattern = "\\.png$",
       full.names = TRUE
     )
@@ -560,23 +554,23 @@ q <- ggplot(sufi_heatmap_dt, aes(x = obs, y = mod, fill = N)) +
     axis.text.x = element_text(angle = 45, hjust = 1) # Angles x-axis labels if they get crowded
 )
 
-ggsave(
-          filename = "../data/figures/qt_heatmap_sim.png",
-          plot = p,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300
-        )
+# ggsave(
+#           filename = "../data/figures/qt_heatmap_sim.png",
+#           plot = p,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300
+#         )
 
-ggsave(
-          filename = "../data/figures/qt_heatmap_sufi.png",
-          plot = q,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300
-        )
+# ggsave(
+#           filename = "../data/figures/qt_heatmap_sufi.png",
+#           plot = q,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300
+#         )
 
 
 
@@ -683,6 +677,115 @@ comparison_plots <- setNames(lapply(all_storms, function(storm) {
 
 comparison_plots
 
+```
+
+## Extract worst performing sites
+
+
+```{r}
+
+pme_dt_list <- lapply(pme_list, function(model_config){
+  
+  sufi_pme_dt <- data.table(
+    unsplit_name = names(unlist(model_config)),
+    pme = unlist(unlist(model_config))
+  )
+
+  sufi_pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
+  sufi_pme_dt[, unsplit_name := NULL]
+  setcolorder(sufi_pme_dt, c("Storm", "G2G.ID", "pme"))
+  merged_pme <- merge(sufi_pme_dt, wales_cdata, by = "G2G.ID")[, .(G2G.ID, NRFA.ID, Site.No.,Site.Name., Storm, pme, CATCHMENTSIZE)]
+  merged_pme <- merged_pme[complete.cases(merged_pme[,"pme"])] ## remove NA
+  return(merged_pme)
+})
+
+worst_pme_sim <- sufi_pme_dt_list$sim[, .(
+  mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
+  mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
+
+worst_pme_sufi <- sufi_pme_dt_list$sufi[, .(
+  mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
+  mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
+
+# worst_pme_sim[order(-mean_abs_pme)]
+bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]$G2G.ID
+bad_g2g_sites_sufi <- worst_pme_sufi[order(mean_pme)][1:20]$G2G.ID
+bad_in_both <- intersect(bad_g2g_sites_sim,bad_g2g_sites_sufi)
+
+source("../functions/get.stats.R")
+stats <- list()
+for (g2g_id in bad_in_both){
+  sim <- mod_ts$sim[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
+  sufi <- mod_ts$sufi[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
+  obs <- obs_ts[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Obs"))]
+  event <- list(sim = sim, sufi = sufi, obs =obs)
+  stats[[g2g_id]] <- list()
+  stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
+  stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
+}
+
+
+
+
+mod_ts[[1]][.(paste0(bad_g2g_sites[1], "_Mod"))]
+
+
+
+mod_name <- paste0(bad_g2g_sites[1], "_Mod")
+mod <- mod_ts[[1]][, c("DATE_TIME", mod_name), with = FALSE]
+obs <- obs_ts[, .(DATE_TIME = get("DATE_TIME"), flow =get(paste0(bad_g2g_sites[1], "_Obs")))]
+
+
+event.data <- list()
+
+
+
+
+
+
+
+# pme_metdata <- setNames(lapply(names(pme_list), function(mod_config) {
+#   sim_type <- mod_config
+
+#   pme_dt <- data.table(
+#     unsplit_name = names(unlist(pme_list[[mod_config]])),
+#     pme = unlist(pme_list[[mod_config]])
+#   )
+
+#   pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
+#   pme_dt[, unsplit_name := NULL]
+#   setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
+
+#   merged_pme <- merge(pme_dt, wales_cdata, by = "G2G.ID")[, .(G2G.ID, Storm, pme, G2G.Easting, G2G.Northing)]
+
+#   storm_names <- unique(merged_pme$Storm)
+# }), names(pme_list))
+
 
 ```
+
+```{r}
+
+catchment_map <- st_read("P:/NEC04218_Ungauged/releases/ffc/releases/G2G_shapefiles/20250610_g2g_ffc_v2_0")
+# wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
+
+
+
+```
+
+
+# things to do
+
+how are sites performing in general. longer period hydrograph covering few years. KGE statistics at these sites. is that site performing well, or is it the high flows that we're getting.
+3 years, across 2018.
+Look at NRFA, see if there is anything particularly noticable.
+
+
+- are there reservoirs
+- gauges upstream feeding into it.
+- headwater
+
+Also the rainfall that is going in.
+
+raingauges
 

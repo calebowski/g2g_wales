@@ -245,10 +245,3 @@ plot.single.point <- function(g2g.id,cdata, wales){
       size = "Catchment size"
     )
 }
-
-
-
-test.arg <- function(data.type = c("sim", "sufi")){
-  obs <- match.arg(data.type, "mod")
-  return(obs)
-}
