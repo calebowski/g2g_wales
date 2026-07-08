@@ -138,11 +138,11 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, pstart = NULL, pend = NU
 
   
    geom_line(data = event.data$sufi, 
-            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sufi")) +
+            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sufi", linetype = "dashed")) +
 
             # Modelled
   geom_line(data = event.data$sim, 
-            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sim")) +
+            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sim", linetype = "dashed")) +
 
   geom_hline(yintercept = qmed, color = "darkgreen", linetype = "dotted", linewidth = 0.4) +
 

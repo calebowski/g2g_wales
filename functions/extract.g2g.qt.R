@@ -96,9 +96,9 @@ make.qt.csv <- function(qt.grid.list, cdata, write = FALSE) {
 #    code to create csv table below       #
 ###########################################
 
-qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## relative paths to `*_g2g_1_nffs.dat` 
-qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
-qt_grid_list <- lapply(qt_grid_paths, read.ascii)
-names(qt_grid_list) <- qt_val ## name by qt
+# qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## relative paths to `*_g2g_1_nffs.dat` 
+# qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+# qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+# names(qt_grid_list) <- qt_val ## name by qt
 
-qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata) ## can replace with whichever cdata, in this case it is cdata filtered by Region. == "Wales"
+# qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata) ## can replace with whichever cdata, in this case it is cdata filtered by Region. == "Wales"
