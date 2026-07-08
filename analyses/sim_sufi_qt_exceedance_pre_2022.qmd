@@ -699,12 +699,23 @@ pme_dt_list <- lapply(pme_list, function(model_config){
 })
 
 worst_pme_sim <- pme_dt_list$sim[, .(
-  mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
-  mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
+  sim_mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
+  sim_mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
 
 worst_pme_sufi <- pme_dt_list$sufi[, .(
-  mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
-  mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
+  sufi_mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
+  sufi_mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
+
+
+merged_pme <- merge(
+  worst_pme_sim,
+  worst_pme_sufi,
+  by = c("G2G.ID", "Site.No.", "Site.Name.", "NRFA.ID", "CATCHMENTSIZE")
+)
+
+merged_pme <- merged_pme[order(sim_mean_pme,sufi_mean_pme,)]
+
+fwrite(merged_pme,"../data/pme_sim_sufi_events_2018_2021.csv")
 
 # worst_pme_sim[order(-mean_abs_pme)]
 bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]
@@ -782,7 +793,7 @@ for (g2g_id in bad_in_both){
       filename = file.path(path, paste0(g2g_id, "__2018_2022_hydrograph.png")),
       plot = combined,
       width = 12,
-      height = 6,
+      height = 10,
       units = "in",
       dpi = 300
     )
@@ -796,6 +807,10 @@ for (g2g_id in bad_in_both){
 
 
 ```
+
+TG 135. or a catchment of 605.89 km² (the Teifi at Llandysul is a sizeable, well-known river), a genuine flood peak physically cannot rise and fall that fast — travel time and channel/floodplain storage smooth the hydrograph out over many hours at minimum. A spike that's essentially one or two timesteps wide, with no proportional rise/recession, is a classic signature of a rating-curve extrapolation error or a sensor/logger glitch, not a real flow. High flows are usually converted from a measured water level via a rating curve, and rating curves are often poorly constrained (or not measured at all) far above the range of flows normally gauged — so an unusual stage reading during an extreme event can translate into a wildly wrong discharge estimate. That would explain why the model — which is right about the runoff response — looks like it's dramatically "missing" the peak, when actually the peak itself may not be real (or not that large).
+For your worst-negative-PME site list generally, I'd build a small table across all of them capturing: catchment size, KGE/Bias/R² (Sim | SUFI), whether any extreme spike shows the "instant up-and-down" signature, whether it's corroborated by neighbours/rainfall, and whether NRW's QC flags confirm a data issue. That turns "these are the worst sites" into "here's how many of the worst sites are genuine model weaknesses vs. data quality issues" — a much stronger, more defensible conclusion.
+
 
 ```{r}
 

@@ -71,7 +71,7 @@ extract.at.points <- function(raster_obj, X, Y) {
 }
 
 
-make.qt.csv <- function(qt.grid.list, cdata) {
+make.qt.csv <- function(qt.grid.list, cdata, write = FALSE) {
   g2g_ids <- cdata$G2G.ID
   qt_dt <- data.table()
   for (id in g2g_ids){
@@ -84,7 +84,9 @@ make.qt.csv <- function(qt.grid.list, cdata) {
     qt_row <- data.table(G2G.ID = id_row$G2G.ID, Site= id_row$Site.No,	G2G_Easting =x ,	G2G_Northing = y,	qmed =qt_vals$qmed ,	q5 = qt_vals$q5,	q10=qt_vals$q10,	q25=qt_vals$q25,	q50=qt_vals$q50,	q75=qt_vals$q75,	q100=qt_vals$q100,	q200=qt_vals$q200,	q250=qt_vals$q250,	q1000=qt_vals$q1000)
     qt_dt <- rbind(qt_row, qt_dt)
   }
-  write.csv(qt_dt, "../data/qt_g2g_sites_new.csv", row.names = FALSE)
+  if (write){
+    write.csv(qt_dt, "../data/qt_g2g_sites_new.csv", row.names = FALSE)
+  }
   return(qt_dt)
 }
 
@@ -94,9 +96,9 @@ make.qt.csv <- function(qt.grid.list, cdata) {
 #    code to create csv table below       #
 ###########################################
 
-# qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## relative paths to `*_g2g_1_nffs.dat` 
-# qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
-# qt_grid_list <- lapply(qt_grid_paths, read.ascii)
-# names(qt_grid_list) <- qt_val ## name by qt
+qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## relative paths to `*_g2g_1_nffs.dat` 
+qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+names(qt_grid_list) <- qt_val ## name by qt
 
-# qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata) ## can replace with whichever cdata, in this case it is cdata filtered by Region. == "Wales"
+qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata) ## can replace with whichever cdata, in this case it is cdata filtered by Region. == "Wales"
