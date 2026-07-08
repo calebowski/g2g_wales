@@ -24,8 +24,7 @@ read.time.series <- function(tsfiles, tspath, output = c("model", "observed")) {
     
     return(dt)
   })
-  ret <- do.call(rbind, processed_list)
-
+  ret <- data.table::rbindlist(processed_list, fill = TRUE)  
   return(ret)
 }
 

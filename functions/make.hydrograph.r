@@ -91,7 +91,7 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, pstart = NULL, pend = NU
   }
 
 
-  if (!inherits(event.data, "list") || !names(event.data) %in% c("sim", "obs", "sufi")){
+  if (!inherits(event.data, "list") || !all(names(event.data) %in% c("sim", "obs", "sufi"))){
     stop(match.call$event.data, "must be a list of 3 items named `sim`, `sufi`, and `obs`...\n")
   }
 
@@ -120,17 +120,15 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, pstart = NULL, pend = NU
   qt_df <- data.frame(qt = names(qt_vals), value = unlist(qt_vals))
 
   if(!is.null(pstart)) {
-    event.data <- lapply(event.data, function(data){
+    event.data <- lapply(event.data, function(data) {
       data[DATE_TIME >= pstart]
     })
   }
   if(!is.null(pend)) {
-    event.data <- lapply(event.data, function(data){
+    event.data <- lapply(event.data, function(data) {
       data[DATE_TIME <=  pend]
     })
   }
-
-
 
   # if (!is.null(river_name))
 
