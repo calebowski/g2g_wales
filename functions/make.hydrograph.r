@@ -82,12 +82,21 @@ make.hydrograph.simple <-function(event.data, g2g.id, storm.name, cdata, qt.data
 }
 
 
-make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.data, sufi){
+make.hydrograph.sim.sufi <-function(event.data, g2g.id, pstart = NULL, pend = NULL, storm.name, cdata, qt.data, sufi, ...){
 
   match_call <- match.call()
 
   if (!inherits(g2g.id, "character")) {
     stop(match_call$g2g.id, " must be character string..\n")
+  }
+
+
+  if (!inherits(event.data, "list") || !names(event.data) %in% c("sim", "obs", "sufi")){
+    stop(match.call$event.data, "must be a list of 3 items named `sim`, `sufi`, and `obs`...\n")
+  }
+
+  if ((!is.null(pstart) || !is.null(pend)) && (!inherits(pend, "POSIXct") || !inherits(pstart, "POSIXct"))){
+    stop("pstart and pend must be of class `POSIXct`")
   }
 
 
@@ -110,19 +119,32 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   qt_vals <- qt_only_vals[, highest_qt_exceeded_index, with = FALSE]
   qt_df <- data.frame(qt = names(qt_vals), value = unlist(qt_vals))
 
+  if(!is.null(pstart)) {
+    event.data <- lapply(event.data, function(data){
+      data[DATE_TIME >= pstart]
+    })
+  }
+  if(!is.null(pend)) {
+    event.data <- lapply(event.data, function(data){
+      data[DATE_TIME <=  pend]
+    })
+  }
+
+
+
   # if (!is.null(river_name))
 
   p <- ggplot() +
-  # Modelled
-  geom_line(data = event.data$sim, 
-            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sim")) +
+  geom_line(data = event.data$obs, 
+            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Obs")), color = "Observed"), linewidth = 0.8) +
+
   
    geom_line(data = event.data$sufi, 
             aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sufi")) +
 
-  # Observed 
-  geom_line(data = event.data$obs, 
-            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Obs")), color = "Observed"), linewidth = 0.8) +
+            # Modelled
+  geom_line(data = event.data$sim, 
+            aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Mod")), color = "Sim")) +
 
   geom_hline(yintercept = qmed, color = "darkgreen", linetype = "dotted", linewidth = 0.4) +
 
@@ -168,10 +190,11 @@ make.hydrograph.sim.sufi <-function(event.data, g2g.id, storm.name, cdata, qt.da
   theme(legend.position = c(0.8, 0.8),
         legend.title    = element_blank(),
         legend.text = element_text(size = 10),
-        aspect.ratio = 0.8,
+        # aspect.ratio = 0.8,
         plot.title = element_text(size = 16, face = "bold"),
         plot.subtitle = element_text(size = 15)
   )
+  p <- p + list(...)
   return(p)
 }
 

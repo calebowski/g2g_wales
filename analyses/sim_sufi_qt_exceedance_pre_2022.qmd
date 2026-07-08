@@ -686,30 +686,30 @@ comparison_plots
 
 pme_dt_list <- lapply(pme_list, function(model_config){
   
-  sufi_pme_dt <- data.table(
+  pme_dt <- data.table(
     unsplit_name = names(unlist(model_config)),
     pme = unlist(unlist(model_config))
   )
 
-  sufi_pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
-  sufi_pme_dt[, unsplit_name := NULL]
-  setcolorder(sufi_pme_dt, c("Storm", "G2G.ID", "pme"))
-  merged_pme <- merge(sufi_pme_dt, wales_cdata, by = "G2G.ID")[, .(G2G.ID, NRFA.ID, Site.No.,Site.Name., Storm, pme, CATCHMENTSIZE)]
+  pme_dt[, c("Storm", "G2G.ID") := tstrsplit(unsplit_name, "\\.")]
+  pme_dt[, unsplit_name := NULL]
+  setcolorder(pme_dt, c("Storm", "G2G.ID", "pme"))
+  merged_pme <- merge(pme_dt, wales_cdata, by = "G2G.ID")[, .(G2G.ID, NRFA.ID, Site.No.,Site.Name., Storm, pme, CATCHMENTSIZE)]
   merged_pme <- merged_pme[complete.cases(merged_pme[,"pme"])] ## remove NA
   return(merged_pme)
 })
 
-worst_pme_sim <- sufi_pme_dt_list$sim[, .(
+worst_pme_sim <- pme_dt_list$sim[, .(
   mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
   mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
 
-worst_pme_sufi <- sufi_pme_dt_list$sufi[, .(
+worst_pme_sufi <- pme_dt_list$sufi[, .(
   mean_abs_pme = mean((abs(pme)), na.rm = TRUE),
   mean_pme = mean(pme, na.rm = TRUE)), by = .(G2G.ID, Site.No.,Site.Name., NRFA.ID, CATCHMENTSIZE)]
 
 # worst_pme_sim[order(-mean_abs_pme)]
-bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]$G2G.ID
-bad_g2g_sites_sufi <- worst_pme_sufi[order(mean_pme)][1:20]$G2G.ID
+bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]
+bad_g2g_sites_sufi <- worst_pme_sufi[order(mean_pme)][1:20]
 bad_in_both <- intersect(bad_g2g_sites_sim,bad_g2g_sites_sufi)
 sufi_data <- fread("../data/sites_list_final.csv")
 sufi_data <- sufi_data[,.(G2G.ID, SU, FI)] ## extract cols of use
@@ -722,21 +722,39 @@ if (!dir.exists("../data/figures/long_bad_hydrographs")){
 }
 path <- "../data/figures/long_bad_hydrographs"
 for (g2g_id in bad_in_both){
-  sim <- mod_ts$sim[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
-  sufi <- mod_ts$sufi[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
-  obs <- obs_ts[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Obs"))]
-  event <- list(sim = sim, sufi = sufi, obs =obs)
-  stats[[g2g_id]] <- list()
-  stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
-  stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
+    sim <- mod_ts$sim[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
+    sufi <- mod_ts$sufi[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
+    obs <- obs_ts[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Obs"))]
+    event <- list(sim = sim, sufi = sufi, obs =obs)
+    stats[[g2g_id]] <- list()
+    stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
+    stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
+    site_stats <- stats[[g2g_id]]
 
-  long_bad_hydrographs[[g2g_id]] <- make.hydrograph.sim.sufi(event, g2g.id = g2g_id, storm.name = "", cdata = wales_cdata, qt.data = filtered_qt[[1]], sufi = sufi_data)
-  ggsave(filename = file.path(path, paste0(g2g_id, "__2018_2022_hydrograph.png")) ,
-          plot = long_bad_hydrographs[[g2g_id]], width = 12,
-          height = 6,
-          units = "in",
-          dpi = 300)
+
+    stats_text <- sprintf(
+    "Performance (Sim | SUFI)\nKGE: %.2f | %.2f\nBias: %.1f%% | %.1f%%\nR^2: %.2f | %.2f",
+    site_stats$sim$KGE, site_stats$sufi$KGE,
+    site_stats$sim$perc_bias, site_stats$sufi$perc_bias,
+    site_stats$sim$R2, site_stats$sufi$R2
+    )
+
+    long_bad_hydrographs[[g2g_id]] <- make.hydrograph.sim.sufi(event, 
+                                            g2g.id = g2g_id, 
+                                            storm.name = "", 
+                                            cdata = wales_cdata, 
+                                            qt.data = filtered_qt[[1]], 
+                                            sufi = sufi_data,
+                                            annotate("label", x = -Inf,y= Inf, hjust = -0.05, vjust = 1.05, label = stats_text, alpha = 0.95,size = 4.5, family = "mono"))
+    ggsave(filename = file.path(path, paste0(g2g_id, "__2018_2022_hydrograph.png")) ,
+            plot = long_bad_hydrographs[[g2g_id]], width = 12,
+            height = 6,
+            units = "in",
+            dpi = 300)
 }
+
+
+
 
 
 
@@ -763,7 +781,9 @@ Look at NRFA, see if there is anything particularly noticable.
 
 - are there reservoirs
 - gauges upstream feeding into it.
-- headwater
+- headwaterany 
+- can we map slopes (tomography)
+
 
 Also the rainfall that is going in.
 
