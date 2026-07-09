@@ -27,14 +27,28 @@ sufi_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "model")
 obs_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "observed")
 
 mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
-
 ## read in the events
 events <- fread("../data/notable_events.csv")
 events_pre_2022 <- events[Year <= 2021,]
 ## read in the catchment metadata
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 ## filter by wales
-wales_cdata <- catchments[Region. == "Wales", ]
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+
+wales_poly <- st_union(wales)
+
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
+
 
 ## make list for each event, with sublist for mod & obs
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)

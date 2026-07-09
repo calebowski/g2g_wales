@@ -67,7 +67,23 @@ obs_ts <- read.time.series(sufi_files[13:22],sufi_path, output = "observed")
 mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 ## filter by wales
-wales_cdata <- catchments[Region. == "Wales", ]
+## filter by wales
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+
+wales_poly <- st_union(wales)
+
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
+
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
 qt_grid_list <- lapply(qt_grid_paths, read.ascii)

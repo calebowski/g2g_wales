@@ -47,4 +47,5 @@ flow_thresholds_alert <- rating_table[level_thresh_alert,
 flow_thresholds_alert[, flow_thresholds_alert := cr * (threshold.level - alpha)^beta]
 
 # Clean up the output
-final_thresholds <- flow_thresholds[, .(G2G.ID, threshold_level, flow_threshold)]
+final_thresholds <- flow_thresholds_alert[, .(G2G.ID, threshold.level, flow_thresholds_alert)]
+fwrite(final_thresholds, "../data/nrw_alert_threshold_convert_flow.csv")
