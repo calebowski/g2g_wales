@@ -215,7 +215,7 @@ plot.wales.pme <- function(dt, wales, storm.name) {
 ## utility funtion to plot a single point based on g2g
 
 ## g2g.id can be a vector of strings or single string
-plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL) {
+plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL, ...) {
 
   match_call <- match.call()
   if(!is.null(fill.variable) && (!ncol(fill.variable) == 2 || !colnames(fill.variable)[1] == "G2G.ID")){
@@ -239,7 +239,7 @@ plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL) {
         x = G2G.Easting,
         y = G2G.Northing,
         size = CATCHMENTSIZE,
-        fill = if (is.null(fill.variable)) "black" else r
+        fill = if (is.null(fill.variable)) "black" else get(fill.var)
       ),
       alpha = 0.9,
       shape = 21,

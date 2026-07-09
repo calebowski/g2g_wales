@@ -716,106 +716,118 @@ merged_pme <- merge(
 merged_pme <- merged_pme[order(sim_mean_pme,sufi_mean_pme,)]
 
 fwrite(merged_pme,"../data/pme_sim_sufi_events_2018_2021.csv")
-
-# worst_pme_sim[order(-mean_abs_pme)]
-bad_g2g_sites_sim <- worst_pme_sim[order(mean_pme)][1:20]
-bad_g2g_sites_sufi <- worst_pme_sufi[order(mean_pme)][1:20]
-bad_in_both <- intersect(bad_g2g_sites_sim,bad_g2g_sites_sufi)
-sufi_data <- fread("../data/sites_list_final.csv")
-sufi_data <- sufi_data[,.(G2G.ID, SU, FI)] ## extract cols of use
-source("../functions/get.stats.R")
-stats <- list()
-long_bad_hydrographs <- list()
-
-if (!dir.exists("../data/figures/long_bad_hydrographs")){
-  dir.create("../data/figures/long_bad_hydrographs")
-}
-path <- "../data/figures/long_bad_hydrographs"
-
-
-years <- c("2018", "2019", "2020", "2021")
-pstart <- list()
-for (i in 1:3){
-  pstart[[i]] <- years[i]
-}
-pend <- list()
-for (i in 1:3){
-  pend[[i]] <- years[i+1]
-}
-
-
-
-for (g2g_id in bad_in_both){
-    sim <- mod_ts$sim[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
-    sufi <- mod_ts$sufi[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Mod"))]
-    obs <- obs_ts[, .SD, .SDcols = c("DATE_TIME", paste0(g2g_id, "_Obs"))]
-    event <- list(sim = sim, sufi = sufi, obs =obs)
-    stats[[g2g_id]] <- list()
-    stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
-    stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
-    site_stats <- stats[[g2g_id]]
-
-
-    stats_text <- sprintf(
-    "Performance (Sim | SUFI)\nKGE: %.2f | %.2f\nBias: %.1f%% | %.1f%%\nR^2: %.2f | %.2f",
-    site_stats$sim$KGE, site_stats$sufi$KGE,
-    site_stats$sim$perc_bias, site_stats$sufi$perc_bias,
-    site_stats$sim$R2, site_stats$sufi$R2
-    )
-    plots <- list()
-    for (i in seq_along(pend)) {
-      plots[[i]] <- make.hydrograph.sim.sufi(
-        event,
-        g2g.id = g2g_id,
-        storm.name = "",
-        cdata = wales_cdata,
-        qt.data = filtered_qt[[1]],
-        sufi = sufi_data,
-        pstart = as.POSIXct(paste(pstart[[i]], "1", "1", sep = "-"), tz = "GMT"),
-        pend = as.POSIXct(paste(pend[[i]], "1", "1", sep = "-"), tz = "GMT"),
-        theme(,
-        legend.title    = element_blank(),
-        legend.text = element_text(size = 10),
-        # aspect.ratio = 0.8,
-        plot.title = element_blank(),
-        plot.subtitle = element_blank())
-      )
-    }
-
-    combined <- wrap_plots(plots, ncol = 1, guides = "collect") +
-      plot_annotation(
-        title = g2g_id,
-        subtitle = stats_text
-      ) &
-      theme(legend.position = "bottom")
-
-    ggsave(
-      filename = file.path(path, paste0(g2g_id, "__2018_2022_hydrograph.png")),
-      plot = combined,
-      width = 12,
-      height = 10,
-      units = "in",
-      dpi = 300
-    )
-}
-
-
-
-
-
-
-
+ 
 
 ```
 
+<!-- 
 TG 135. or a catchment of 605.89 km² (the Teifi at Llandysul is a sizeable, well-known river), a genuine flood peak physically cannot rise and fall that fast — travel time and channel/floodplain storage smooth the hydrograph out over many hours at minimum. A spike that's essentially one or two timesteps wide, with no proportional rise/recession, is a classic signature of a rating-curve extrapolation error or a sensor/logger glitch, not a real flow. High flows are usually converted from a measured water level via a rating curve, and rating curves are often poorly constrained (or not measured at all) far above the range of flows normally gauged — so an unusual stage reading during an extreme event can translate into a wildly wrong discharge estimate. That would explain why the model — which is right about the runoff response — looks like it's dramatically "missing" the peak, when actually the peak itself may not be real (or not that large).
-For your worst-negative-PME site list generally, I'd build a small table across all of them capturing: catchment size, KGE/Bias/R² (Sim | SUFI), whether any extreme spike shows the "instant up-and-down" signature, whether it's corroborated by neighbours/rainfall, and whether NRW's QC flags confirm a data issue. That turns "these are the worst sites" into "here's how many of the worst sites are genuine model weaknesses vs. data quality issues" — a much stronger, more defensible conclusion.
+For your worst-negative-PME site list generally, I'd build a small table across all of them capturing: catchment size, KGE/Bias/R² (Sim | SUFI), whether any extreme spike shows the "instant up-and-down" signature, whether it's corroborated by neighbours/rainfall, and whether NRW's QC flags confirm a data issue. That turns "these are the worst sites" into "here's how many of the worst sites are genuine model weaknesses vs. data quality issues" — a much stronger, more defensible conclusion. -->
 
+
+## Explore impcat of ratings
+
+Note here that rating change means that the observed outputs at those sites were using the old rating curve, not the new one. <br>
+
+```{r echo = FALSE}
+
+# catchment_map <- st_read("P:/NEC04218_Ungauged/releases/ffc/releases/G2G_shapefiles/20250610_g2g_ffc_v2_0")
+# wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
+
+
+
+
+rating_change_dt <- fread("../data/rating_change_g2g.csv")
+pme_dt_sufi <- pme_dt_list$sim
+
+pme_dt_sufi_rating <- merge(pme_dt_sufi, rating_change_dt, by = "G2G.ID")
+
+pme_dt_sufi_rating[, rating_group := factor(
+  new_rating,
+  levels = c(0, 1),
+  labels = c("No change in rating curve", "Using old rating")
+)]
+
+q1 <- quantile(pme_dt_sufi_rating$pme, 0.25, na.rm = TRUE)
+q3 <- quantile(pme_dt_sufi_rating$pme, 0.75, na.rm = TRUE)
+iqr <- q3 - q1
+
+pme_clean <- pme_dt_sufi_rating[
+  pme >= (q1 - 1.5 * iqr) & pme <= (q3 + 1.5 * iqr)
+]
+counts <- pme_clean[, .(
+  n = .N,
+  y = max(pme, na.rm = TRUE)
+), by = rating_group]
+
+counts[, y := y + 0.05 * diff(range(pme_clean$pme, na.rm = TRUE))]
+
+ggplot(pme_clean, aes(x = rating_group, y = pme, fill = rating_group)) +
+  geom_boxplot(alpha = 0.7) +
+  geom_text(
+    data = counts,
+    aes(x = rating_group, y = y, label = paste0("n = ", n)),
+    inherit.aes = FALSE,
+    vjust = 0
+  ) +
+  labs(
+    x = "Rating change",
+    y = "PME",
+    title = "PME by whether site has changed rating since 2022 (SIM)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+pme_dt_sufi <- pme_dt_list$sufi
+
+pme_dt_sufi_rating <- merge(pme_dt_sufi, rating_change_dt, by = "G2G.ID")
+
+pme_dt_sufi_rating[, rating_group := factor(
+  new_rating,
+  levels = c(0, 1),
+  labels = c("No change in rating curve", "Using old rating")
+)]
+
+q1 <- quantile(pme_dt_sufi_rating$pme, 0.25, na.rm = TRUE)
+q3 <- quantile(pme_dt_sufi_rating$pme, 0.75, na.rm = TRUE)
+iqr <- q3 - q1
+
+pme_clean <- pme_dt_sufi_rating[
+  pme >= (q1 - 1.5 * iqr) & pme <= (q3 + 1.5 * iqr)
+]
+counts <- pme_clean[, .(
+  n = .N,
+  y = max(pme, na.rm = TRUE)
+), by = rating_group]
+
+counts[, y := y + 0.05 * diff(range(pme_clean$pme, na.rm = TRUE))]
+
+ggplot(pme_clean, aes(x = rating_group, y = pme, fill = rating_group)) +
+  geom_boxplot(alpha = 0.7) +
+  # geom_text(
+  #   data = counts,
+  #   aes(x = rating_group, y = y, label = paste0("n = ", n)),
+  #   inherit.aes = FALSE,
+  #   vjust = 0
+  # ) +
+  labs(
+    x = "Rating change",
+    y = "PME",
+    title = "PME by whether site has changed rating since 2022 (SUFI)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+```
+
+## read in river gauge network
 
 ```{r}
 
-catchment_map <- st_read("P:/NEC04218_Ungauged/releases/ffc/releases/G2G_shapefiles/20250610_g2g_ffc_v2_0")
-# wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
+river_gauges <- fread("../data/rg_info_2022.csv")
+
+
+
 
 
 
@@ -831,11 +843,16 @@ Look at NRFA, see if there is anything particularly noticable.
 
 - are there reservoirs
 - gauges upstream feeding into it.
-- headwaterany 
+- headwater any 
 - can we map slopes (tomography)
 
 
-Also the rainfall that is going in.
+Also the rainfall that is going in, needs checking.
 
-raingauges
-
+Raingauges.
+- one idea is the amount of raingauges in a certain radius, were g2g site is the centroid.
+-  Catchment size split up; altert warnings per catchment
+Elwy, putting in thresholds
+Gridded outputs.
+Some of the other storm events, pre 2018.
+Do analyses per catchment size.
