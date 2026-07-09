@@ -34,7 +34,7 @@ rating_table <- rbindlist(curve_list)
 level_thresh <- fread("../data/nrw_level_threshold.csv")
 level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
 
-level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
+level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .(threshold.level),  by = .(G2G.ID)]
 
 level_thresh_alert[, join_level := threshold.level] ## make a duplicate column for joining and one spare for putting it in
 
@@ -44,7 +44,7 @@ flow_thresholds_alert <- rating_table[level_thresh_alert,
                           nomatch = NULL]
 
 # Calculate the discharge (handling any potential negative bases before the power operation)
-flow_thresholds[, flow_threshold := cr * (pmax(0, threshold.level - alpha))^beta]
+flow_thresholds_alert[, flow_thresholds_alert := cr * (threshold.level - alpha)^beta]
 
 # Clean up the output
 final_thresholds <- flow_thresholds[, .(G2G.ID, threshold_level, flow_threshold)]

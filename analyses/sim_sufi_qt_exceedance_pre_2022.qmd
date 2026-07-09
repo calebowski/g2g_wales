@@ -81,7 +81,23 @@ events_pre_2022 <- events[Year <= 2021,]
 ## read in the catchment metadata
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 ## filter by wales
-wales_cdata <- catchments[Region. == "Wales", ]
+
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+
+wales_poly <- st_union(wales)
+
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID))
+wales_cdata <- catchments[G2G.ID %in sf_g2g_ids]
+
+
 ```
 
 
@@ -832,6 +848,7 @@ river_gauges <- fread("../data/rg_info_2022.csv")
 
 
 ```
+
 
 
 # things to do
