@@ -167,7 +167,7 @@ load.g2g.data <- function(dates, sufi = TRUE){
 
   mi_ts_obs <- read.time.series(mi_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "observed")
   wa_ts_obs <- read.time.series(wa_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "observed")
-  combined_ts_obs <- merge(mi_ts_sufi, wa_ts_sufi, by = "DATE_TIME", all = TRUE)
+  combined_ts_obs <- merge(mi_ts_obs, wa_ts_obs, by = "DATE_TIME", all = TRUE)
 
   return(list(obs = combined_ts_obs, mod = list(sim = combined_ts_sim, sufi = combined_ts_sufi)))
 }

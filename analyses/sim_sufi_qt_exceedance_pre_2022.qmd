@@ -117,17 +117,17 @@ qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
 ```{r, include = FALSE}
 
 sim_max_discharge_qt <- list()
-for (t_val in qt_val){
-    sim_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs){
-        extract.peak.discharge(event_mod_obs, qt_dt,  t_val)
-    }, events_list$sim)
+for (t_val in qt_val) {
+  sim_max_discharge_qt[[t_val]] <- lapply(events_list$sim, function(event_mod_obs) {
+    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+  })
 }
 
 sufi_max_discharge_qt <- list()
-for (t_val in qt_val){
-    sufi_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
-        extract.peak.discharge(event_mod_obs, qt_dt,  t_val)
-    }, events_list$sufi)
+for (t_val in qt_val) {
+  sufi_max_discharge_qt[[t_val]] <- lapply(events_list$sufi, function(event_mod_obs) {
+    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+  })
 }
 
 max_discharge_qt <- list(sim = sim_max_discharge_qt, sufi = sufi_max_discharge_qt)
@@ -831,15 +831,29 @@ nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
   added_cdata <- merge(wide, wales_cdata, by = "G2G.ID")
 })
 
-test_plot <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim, storm.name = "Ciara", wales = wales)
-
-
-
-nrw_thresh_exceed_dt_list_storms <- lapply(nrw_thresh_exceed_cat, split, by = "Storm") ## split into list by storm event
 
 
 
 
+plots <- setNames(lapply(names(nrw_thresh_exceed_cat), function(mod_config){
+  sim_dt <- nrw_thresh_exceed_cat[[mod_config]]
+  storm_list <- list()
+  for (storm_name in unique(sim_dt$Storm)){
+    storm_list[[storm_name]] <- plot.wales.nrw.thresh(sim_dt, storm.name = storm_name, wales = wales)
+  }
+  return(storm_list)
+}),  names(nrw_thresh_exceed_cat))
+
+
+comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
+  p_sim  <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim,  wales, storm.name = storm_name)
+  p_sufi <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sufi, wales, storm.name = storm_name)
+
+  p_sim + p_sufi +
+    plot_annotation(title = paste("Storm:", storm_name))
+}), storm_names)
+
+comparison_plots
 
 
 
