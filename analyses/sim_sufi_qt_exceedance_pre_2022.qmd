@@ -38,13 +38,11 @@ library(grid)
 library(gridExtra)
 library(patchwork)
 library(gt)
-source("../functions/utility.R")
+source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.qt.R")
 source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 source("../functions/obs.mod.stats.R")
-
-
 ```
 
 
@@ -57,24 +55,9 @@ source("../functions/obs.mod.stats.R")
 * The following sites are missing from g2g model output, but present in catchment data: 055025_TG_325_Mod, 57809_Mod 60005_Mod, 066004_TG_9512_Mod, 067005_TG_116_Mod, 067023_TG_117_Mod, 055025_TG_325_Mod, 60005_Mod. -->
 
 ```{r, include = FALSE}
-## get g2g simulation file paths (this is Sim)
-sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
-sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
-sim_files <- paste0(sim_runs, "/base_.dat_WA")
-sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
-sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
-sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
-
-
-
-
-## read in mod and obs
-sim_ts <- read.time.series(sim_files[19:22],sim_path, output = "model")
-sufi_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "model")
-obs_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "observed")
-
-mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
-
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
 ## read in the events
 events <- fread("../data/notable_events.csv")
 events_pre_2022 <- events[Year <= 2021,]
@@ -90,12 +73,9 @@ catchments_sf <- st_as_sf(
   crs = 27700,
   remove = FALSE
 )
-
 wales_poly <- st_union(wales)
-
 sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
 wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
-
 
 
 ```
@@ -107,14 +87,6 @@ We subset the time series 7 days either side of the event beginning/end. <br> --
 
 
 ```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
-## classify regions based on northing (can be adjusted)
-# region_classifier <- list(north_wales = wales_cdata$WISKI.NORTHING >= 300000, 
-#                           mid_wales = wales_cdata$WISKI.NORTHING >= 230000 & wales_cdata$WISKI.NORTHING <= 300000, 
-#                           south_wales= wales_cdata$WISKI.NORTHING <= 230000)
-
-# ## make list for each event, with sublist for mod & obs
-# events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  region_classifier, exclude.non.notable.sites = FALSE)
-
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
 
 ```
@@ -126,14 +98,15 @@ QT data is extracted using functions from `functions/griddedData_class_jrw.py` c
 These functions can be re-used when more catchment data is added.
 Note that these QT values are calculated pre-2022. -->
 
+
+
 ```{r, message = FALSE, include = FALSE}
+## this chunk extracts the g2g qt vals
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
 qt_grid_list <- lapply(qt_grid_paths, read.ascii)
 names(qt_grid_list) <- qt_val ## name by qt
-
 qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
-
 ```
 
 
@@ -142,7 +115,6 @@ qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
 * Peak discharge extracted at each event at each g2g site for observed (what actually happened) and modelled (sim and sufi).
 
 ```{r, include = FALSE}
-filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only need to extract first list item because sim and sufi extract identical
 
 sim_max_discharge_qt <- list()
 for (t_val in qt_val){
@@ -154,13 +126,13 @@ for (t_val in qt_val){
 sufi_max_discharge_qt <- list()
 for (t_val in qt_val){
     sufi_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
-        extract.peak.discharge(event_mod_obs, event_qt,  t_val)
-    }, events_list$sufi, filtered_qt)
+        extract.peak.discharge(event_mod_obs, qt_dt,  t_val)
+    }, events_list$sufi)
 }
 
 max_discharge_qt <- list(sim = sim_max_discharge_qt, sufi = sufi_max_discharge_qt)
 
-qt_exceeded <- lapply(max_discharge_qt,lapply, lapply, qt.exceed)
+qt_exceeded <- lapply(max_discharge_qt,lapply, lapply, thresh.exceed)
 
 
 qt_exceeded_dt_list <- lapply(qt_exceeded, lapply, function(qt){
@@ -182,20 +154,19 @@ merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
 
 ```{r echo = FALSE, warning = FALSE, message = FALSE, include = FALSE}
 # wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")# Read Wales constituency polygons
-wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
-wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
+# 
 
 q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
 
 highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
     exceed_dt <- rbindlist(model_config, idcol = "Threshold")
 
-    exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)]
+    exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)] ## sub qmed for q1 so it can be ordered correctly in next step
 
     exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
 
-    exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)]
-    filtered_dt <- exceed_dt[keep_site_storm == TRUE]
+    exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)] ## identify sites exceeded in any of 3 data (obs, sim sufi)
+    filtered_dt <- exceed_dt[keep_site_storm == TRUE] ## filter these sites
 
     highest_qt_exceeded <- filtered_dt[, .(
       Threshold = if (any(Exceeded == TRUE, na.rm = TRUE)) {
@@ -288,57 +259,6 @@ for (event in names(events_list_notable_catchments[[1]])) {
   events_list_notable_catchments_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
 }
 
-
-
-# for (event in names(events_list_notable_catchments_pivoted)) {
-
-#   event_data <- events_list_notable_catchments_pivoted[[event]]
-#   event_plots <- list()
-
-#   g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
-
-#   ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
-#     order(as.numeric(CATCHMENTSIZE)),
-#     .SD,
-#     by = River.Name
-#   ]
-
-#   g2g_ids <- ord_catchment_size_river$G2G.ID
-
-#   for (g2g_id in g2g_ids) {
-#     tryCatch({
-#       event_plots[[g2g_id]] <- make.hydrograph.sim.sufi(
-#         event.data = event_data,
-#         g2g.id = g2g_id,
-#         storm.name = event,
-#         cdata = wales_cdata,
-#         qt.data = filtered_qt,
-#         sufi =sufi_data
-#       )
-#     }, error = function(e) {
-#     })
-#   }
-
-#   event_plots <- event_plots[!sapply(event_plots, is.null)]
-
-#   if (length(event_plots) > 0) {
-
-#     plot_river <- split(event_plots, ord_catchment_size_river$River.Name)
-
-#     for (i in seq_along(plot_river)) {
-#       river_plot_name <- names(plot_river)[i]
-#       current_chunk <- plot_river[[i]]
-
-#       river_patch <- wrap_plots(current_chunk, ncol = 2) +
-#         plot_annotation(
-#           title = paste("Storm:", event, "River:", river_plot_name),
-#           theme = theme(plot.title = element_text(size = 14, face = "bold"))
-#         )
-
-#       print(river_patch)
-#     }
-#   }
-# }
 
 ```
 
@@ -849,9 +769,73 @@ river_gauges <- fread("../data/rg_info_2022.csv")
 
 ```{r}
 
-nrw_threshold <- fread("../data/nrw_alert_threshold_convert_flow.csv")
+#         extract.peak.discharge(event_mod_obs)
 
-peak_discharges <- lapply(events_list, lapply, extract.peak.discharge)
+
+#     sufi_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
+#         extract.peak.discharge(event_mod_obs)
+#     }, events_list$sufi)
+# }
+
+
+max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+
+nrw_threshold <- fread("../data/nrw_alert_threshold_convert_flow.csv")
+nrw_threshold_v <- nrw_threshold$flow_thresholds_alert
+names(nrw_threshold_v) <- nrw_threshold$G2G.ID
+max_discharge_sim_sufi_filt <- lapply(max_discharge_sim_sufi, lapply, function(x){
+  g2g_sites <- names(nrw_threshold_v)
+  mod <- x$mod
+  obs <- x$obs
+  mod_sites <- gsub("_Mod", "", names(mod))
+  obs_sites <- gsub("_Obs", "", names(obs))
+  filt <- mod_sites %in% g2g_sites
+  mod_filt <- mod[filt]
+  obs_filt <- obs[filt] ## filter so theyre matching
+  return(list(obs = obs_filt, mod = mod_filt))
+})
+
+
+nrw_thresh_exceed <- lapply(max_discharge_sim_sufi_filt, lapply, thresh.exceed, threshold = nrw_threshold_v)
+
+
+nrw_thresh_exceed_dt_list <- lapply(nrw_thresh_exceed, function(storm){
+    dt_exceed <- data.table(
+    unsplit_name     = names(unlist(storm)),
+    Exceeded = unlist(storm)
+    )
+    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
+    dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
+    dt_exceed[, unsplit_name := NULL]
+    setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
+    return(dt_exceed)
+})
+
+nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
+  wide <- dcast(
+    dt,
+    Storm + G2G.ID  ~ Data_Type,
+    value.var = "Exceeded", ## pivot to long with mod and obs filled by exceeded
+    fill = FALSE
+  )
+
+  wide[, exceed_class := fifelse(obs & mod, "both",
+    fifelse(obs & !mod, "obs only",
+      fifelse(!obs & mod, "mod only", "neither")
+    )
+  )]
+
+  wide <- na.omit(wide) ## remove NA cols (from obs failing)
+  # wide
+
+  added_cdata <- merge(wide, wales_cdata, by = "G2G.ID")
+})
+
+test_plot <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim, storm.name = "Ciara", wales = wales)
+
+
+
+nrw_thresh_exceed_dt_list_storms <- lapply(nrw_thresh_exceed_cat, split, by = "Storm") ## split into list by storm event
 
 
 
@@ -882,5 +866,8 @@ Raingauges.
 -  Catchment size split up; altert warnings per catchment
 Elwy, putting in thresholds
 Gridded outputs.
+  - john making gridded outputs
+  - can look at different high flows at different parts of the river.
 Some of the other storm events, pre 2018.
 Do analyses per catchment size.
+Pull Ma from midland.

@@ -1,7 +1,6 @@
 library(xml2)
 library(data.table)
 
-
 # 1. Read the XML document
 doc <- read_xml("../data/ratingcurves_NRW_May2026.xml")
 

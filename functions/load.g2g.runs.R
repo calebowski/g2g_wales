@@ -134,3 +134,40 @@ remove.suffix <- function(g2g_id, suffix = c("_Obs", "_Mod")) {
   g2g_id_suffix_removed <- gsub("_Obs", "", g2g_id)
 }
 
+
+
+## note that this is for the runs up to 2021, dates need to be changed otherwise
+load.g2g.data <- function(dates, sufi = TRUE){
+  if (any(!dir.exists(c("../data/g2g_data/Sim_g2g_run/", "../data/g2g_data/SUFI_g2g_run/")))){
+    stop("Paths to g2g data don't exist..\n")
+  }
+
+  if (!inherits(dates, "numeric") || length(dates) != 2){
+    stop("`Dates` must be a vector of 2 years...\n")
+  }
+
+  years <- seq(from = 2000, to = 2021, by = 1) ## needs changing when new runs added
+  year_index <- which(years == dates) ## get the positions in vector that match dates we want
+  sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
+  sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
+  sim_runs <- list.dirs(sim_path, full.names = FALSE, recursive = FALSE)
+  sufi_runs <- list.dirs(sufi_path, full.names = FALSE, recursive = FALSE)
+  
+  mi_files_sim  <- paste0(sim_runs, "/base_.dat_MI")
+  wa_files_sim  <- paste0(sim_runs, "/base_.dat_WA")
+  mi_ts_sim <- read.time.series(mi_files_sim[year_index[1]:year_index[2]], sim_path, output = "model")
+  wa_t_sim <- read.time.series(wa_files_sim[year_index[1]:year_index[2]], sim_path, output = "model")
+  combined_ts_sim <- merge(mi_ts_sim, wa_t_sim, by = "DATE_TIME", all = TRUE)
+
+  mi_files_sufi  <- paste0(sufi_runs, "/base_.dat_MI")
+  wa_files_sufi  <- paste0(sufi_runs, "/base_.dat_WA")
+  mi_ts_sufi <- read.time.series(mi_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "model")
+  wa_ts_sufi <- read.time.series(wa_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "model")
+  combined_ts_sufi <- merge(mi_ts_sufi, wa_ts_sufi, by = "DATE_TIME", all = TRUE)
+
+  mi_ts_obs <- read.time.series(mi_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "observed")
+  wa_ts_obs <- read.time.series(wa_files_sufi[year_index[1]:year_index[2]], sufi_path, output = "observed")
+  combined_ts_obs <- merge(mi_ts_sufi, wa_ts_sufi, by = "DATE_TIME", all = TRUE)
+
+  return(list(obs = combined_ts_obs, mod = list(sim = combined_ts_sim, sufi = combined_ts_sufi)))
+}

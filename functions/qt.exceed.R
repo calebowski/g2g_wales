@@ -32,18 +32,26 @@ extract.peak.discharge <- function(event, qt = NULL, T) {
 }
 
 
-qt.exceed <- function(max_discharge){
+thresh.exceed <- function(max_discharge, threshold = NULL) {
+    # if (!is.null(threshold) %% !inherits(threshold, "numeric"))
     mod <- max_discharge$mod
     obs <- max_discharge$obs
-    qt <- max_discharge$qt
-    g2g_ids <- names(qt)
-    mod_qt <- list()
-    obs_qt <- list()
+    if (any(names(max_discharge) %in% "qt")){ ## works with `qt` vals.
+      thresh <- max_discharge$qt
+      g2g_ids <- names(thresh)
+    } else if (!is.null(threshold)){ ## and works with other thresholds
+      thresh <- threshold
+      g2g_ids <- names(thresh)
+      g2g_ids <- g2g_ids[g2g_ids %in% gsub("_Mod", "", names(mod))]
+    }
+    # qt <- max_discharge$qt
+    mod_thresh <- list()
+    obs_thresh <- list()
     for(id in g2g_ids){
-        mod_qt[[id]] <- mod[grep(id, names(mod),value = TRUE)] >= qt[id]
+        mod_thresh[[id]] <- mod[grep(id, names(mod),value = TRUE)] >= thresh[id]
     }
     for (id in g2g_ids){
-        obs_qt[[id]] <- obs[grep(id, names(obs), value = TRUE)] >= qt[id]
+        obs_thresh[[id]] <- obs[grep(id, names(obs), value = TRUE)] >= thresh[id]
     }
-    return(list(mod = mod_qt, obs = obs_qt))
+    return(list(mod = mod_thresh, obs = obs_thresh))
 }
