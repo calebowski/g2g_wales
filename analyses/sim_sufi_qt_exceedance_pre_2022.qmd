@@ -81,7 +81,6 @@ events_pre_2022 <- events[Year <= 2021,]
 ## read in the catchment metadata
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 ## filter by wales
-
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700)
 
@@ -94,8 +93,9 @@ catchments_sf <- st_as_sf(
 
 wales_poly <- st_union(wales)
 
-sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID))
-wales_cdata <- catchments[G2G.ID %in sf_g2g_ids]
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
 
 
 ```
@@ -146,9 +146,9 @@ filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]] ## only n
 
 sim_max_discharge_qt <- list()
 for (t_val in qt_val){
-    sim_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs, event_qt){
-        extract.peak.discharge(event_mod_obs, event_qt,  t_val)
-    }, events_list$sim, filtered_qt)
+    sim_max_discharge_qt[[t_val]] <- Map(function(event_mod_obs){
+        extract.peak.discharge(event_mod_obs, qt_dt,  t_val)
+    }, events_list$sim)
 }
 
 sufi_max_discharge_qt <- list()
@@ -180,7 +180,7 @@ merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
 ```
 
 
-```{r ECHO = FALSE, warning = FALSE, message = FALSE, include = FALSE}
+```{r echo = FALSE, warning = FALSE, message = FALSE, include = FALSE}
 # wales <- st_read("W:/hymod/Hydro-JULES/HJ Internships/2026 - NRW G2G/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")# Read Wales constituency polygons
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700) # Ensure CRS is BNG (should already be, but safe to enforce)
@@ -842,13 +842,24 @@ ggplot(pme_clean, aes(x = rating_group, y = pme, fill = rating_group)) +
 
 river_gauges <- fread("../data/rg_info_2022.csv")
 
+```
+
+
+## NRW Threshold exceedance
+
+```{r}
+
+nrw_threshold <- fread("../data/nrw_alert_threshold_convert_flow.csv")
+
+peak_discharges <- lapply(events_list, lapply, extract.peak.discharge)
+
+
 
 
 
 
 
 ```
-
 
 
 # things to do

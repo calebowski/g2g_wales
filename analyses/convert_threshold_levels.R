@@ -34,8 +34,6 @@ rating_table <- rbindlist(curve_list)
 level_thresh <- fread("../data/nrw_level_threshold.csv")
 level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
 
-level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .(threshold.level),  by = .(G2G.ID)]
-
 level_thresh_alert[, join_level := threshold.level] ## make a duplicate column for joining and one spare for putting it in
 
 # Perform a non-equi join to match the stage to the correct equation bracket
