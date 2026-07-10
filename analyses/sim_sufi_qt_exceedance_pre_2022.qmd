@@ -87,6 +87,7 @@ We subset the time series 7 days either side of the event beginning/end. <br> --
 
 
 ```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
+
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
 
 ```
@@ -835,19 +836,23 @@ nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
 
 
 
-plots <- setNames(lapply(names(nrw_thresh_exceed_cat), function(mod_config){
-  sim_dt <- nrw_thresh_exceed_cat[[mod_config]]
-  storm_list <- list()
-  for (storm_name in unique(sim_dt$Storm)){
-    storm_list[[storm_name]] <- plot.wales.nrw.thresh(sim_dt, storm.name = storm_name, wales = wales)
-  }
-  return(storm_list)
-}),  names(nrw_thresh_exceed_cat))
+# plots <- setNames(lapply(names(nrw_thresh_exceed_cat), function(mod_config){
+#   sim_dt <- nrw_thresh_exceed_cat[[mod_config]]
+#   storm_list <- list()
+#   for (storm_name in unique(sim_dt$Storm)){
+#     storm_list[[storm_name]] <- plot.wales.nrw.thresh(sim_dt, storm.name = storm_name, wales = wales)
+#   }
+#   return(storm_list)
+# }),  names(nrw_thresh_exceed_cat))
 
+storm_names <- unique(nrw_thresh_exceed_cat$sim$Storm)
 
 comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
-  p_sim  <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim,  wales, storm.name = storm_name)
-  p_sufi <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sufi, wales, storm.name = storm_name)
+  p_sim  <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim,  wales, storm.name = storm_name) +
+    labs(subtitle = "SIM")
+
+  p_sufi <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sufi, wales, storm.name = storm_name) +
+    labs(subtitle = "SUFI")
 
   p_sim + p_sufi +
     plot_annotation(title = paste("Storm:", storm_name))
@@ -856,6 +861,7 @@ comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
 comparison_plots
 
 
+## need to do a podfar
 
 ```
 

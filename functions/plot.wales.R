@@ -135,7 +135,7 @@ plot.wales.nrw.thresh <- function(dt, wales, storm.name) {
     
     # place g2g site points
     geom_point(data = plot_dt, 
-               aes(x = G2G_Easting, y = G2G_Northing, fill = exceed_class),
+               aes(x = G2G.Easting, y = G2G.Northing, fill = exceed_class),
                size = 2.5, 
                alpha = 0.9,
                stroke = 0.6,
@@ -166,7 +166,7 @@ plot.wales.nrw.thresh <- function(dt, wales, storm.name) {
       ) +
     labs(
       # title = paste(storm.name, "QT Threshold Exceedance Map"),
-      title = paste(storm.name, "NRW Threshold exceedance map"),
+      title = paste("NRW Threshold exceedance map"),
       x = "Easting (m)",
       y = "Northing (m)",
       color = "Exceeded NRW Threshold?"

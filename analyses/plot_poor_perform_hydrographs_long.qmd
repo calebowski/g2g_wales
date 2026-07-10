@@ -41,7 +41,7 @@ library(gtools)
 library(patchwork)
 library(gt)
 library(sf)
-source("../functions/utility.R")
+source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.qt.R")
 source("../functions/make.hydrograph.R")
 source("../functions/get.stats.R")
@@ -52,21 +52,14 @@ if (!dir.exists("../data/figures/poor_perform_hydrographs")){
 }
 path <- "../data/figures/poor_perform_hydrographs"
 
-
-sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
-sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
-sim_files <- paste0(sim_runs, "/base_.dat_WA")
-sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
-sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
-sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
-
-## read in mod and obs
-sim_ts <- read.time.series(sim_files[13:22],sim_path, output = "model")
-sufi_ts <- read.time.series(sufi_files[13:22],sufi_path, output = "model")
-obs_ts <- read.time.series(sufi_files[13:22],sufi_path, output = "observed")
-mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2012, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
+## read in the events
+events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
+## read in the catchment metadata
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
-## filter by wales
 ## filter by wales
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700)
@@ -77,9 +70,7 @@ catchments_sf <- st_as_sf(
   crs = 27700,
   remove = FALSE
 )
-
 wales_poly <- st_union(wales)
-
 sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
 wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 
@@ -118,52 +109,52 @@ for (g2g_id in poor_sites){
     stats[[g2g_id]] <- list()
     stats[[g2g_id]]$sim <- get.stats(mod = event$sim, obs = event$obs)
     stats[[g2g_id]]$sufi <- get.stats(mod = event$sufi, obs = event$obs)
-    # site_stats <- stats[[g2g_id]]
+    site_stats <- stats[[g2g_id]]
 
 
-    # stats_text <- sprintf(
-    # "Performance (Sim | SUFI)\nKGE: %.2f | %.2f\nBias: %.1f%% | %.1f%%\nR^2: %.2f | %.2f",
-    # site_stats$sim$KGE, site_stats$sufi$KGE,
-    # site_stats$sim$perc_bias, site_stats$sufi$perc_bias,
-    # site_stats$sim$R2, site_stats$sufi$R2
-    # )
-    # plots <- list()
-    # for (i in seq_along(pend)) {
-    #   cat("plotting year panel", pstart[[i]], "\n")
-    #   plots[[i]] <- make.hydrograph.sim.sufi(
-    #     event,
-    #     g2g.id = g2g_id,
-    #     storm.name = "",
-    #     cdata = wales_cdata,
-    #     qt.data = qt_dt,
-    #     sufi = sufi_data,
-    #     pstart = as.POSIXct(paste(pstart[[i]], "1", "1", sep = "-"), tz = "GMT"),
-    #     pend = as.POSIXct(paste(pend[[i]], "1", "1", sep = "-"), tz = "GMT"),
-    #     theme(,
-    #     legend.title    = element_blank(),
-    #     legend.text = element_text(size = 10),
-    #     # aspect.ratio = 0.8,
-    #     plot.title = element_blank(),
-    #     plot.subtitle = element_blank())
-    #   )
-    # }
+    stats_text <- sprintf(
+    "Performance (Sim | SUFI)\nKGE: %.2f | %.2f\nBias: %.1f%% | %.1f%%\nR^2: %.2f | %.2f",
+    site_stats$sim$KGE, site_stats$sufi$KGE,
+    site_stats$sim$perc_bias, site_stats$sufi$perc_bias,
+    site_stats$sim$R2, site_stats$sufi$R2
+    )
+    plots <- list()
+    for (i in seq_along(pend)) {
+      cat("plotting year panel", pstart[[i]], "\n")
+      plots[[i]] <- make.hydrograph.sim.sufi(
+        event,
+        g2g.id = g2g_id,
+        storm.name = "",
+        cdata = wales_cdata,
+        qt.data = qt_dt,
+        sufi = sufi_data,
+        pstart = as.POSIXct(paste(pstart[[i]], "1", "1", sep = "-"), tz = "GMT"),
+        pend = as.POSIXct(paste(pend[[i]], "1", "1", sep = "-"), tz = "GMT"),
+        theme(,
+        legend.title    = element_blank(),
+        legend.text = element_text(size = 10),
+        # aspect.ratio = 0.8,
+        plot.title = element_blank(),
+        plot.subtitle = element_blank())
+      )
+    }
 
-    # combined <- wrap_plots(plots, ncol = 1, guides = "collect") +
-    #   plot_annotation(
-    #     title = g2g_id,
-    #     subtitle = stats_text
-    #   ) &
-    #   theme(legend.position = "bottom")
-    # cat("Saving g2g id:", g2g_id, "\n")
-    # ggsave(
-    #   filename = file.path(path, paste0(g2g_id, "__2012_2021_hydrograph.png")), ## save hydrograph
-    #   plot = combined,
-    #   width = 12,
-    #   height = 18, ## tall because 10 years/columns
-    #   units = "in",
-    #   dpi = 300
-    # )
-    # print(combined)
+    combined <- wrap_plots(plots, ncol = 1, guides = "collect") +
+      plot_annotation(
+        title = g2g_id,
+        subtitle = stats_text
+      ) &
+      theme(legend.position = "bottom")
+    cat("Saving g2g id:", g2g_id, "\n")
+    ggsave(
+      filename = file.path(path, paste0(g2g_id, "__2012_2021_hydrograph.png")), ## save hydrograph
+      plot = combined,
+      width = 12,
+      height = 18, ## tall because 10 years/columns
+      units = "in",
+      dpi = 300
+    )
+    print(combined)
 }
 
 stats_dt <- rbindlist(lapply(names(stats), function(g2g_id) {

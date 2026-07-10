@@ -2,31 +2,21 @@ plot_directory <- "../data/figures/hydrographs"
 if (!dir.exists(plot_directory)){
   dir.create(plot_directory, recursive = TRUE)
 }
-source("../functions/utility.R")
-source("../functions/make.hydrograph.R")
+source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.qt.R")
 source("../functions/qt.exceed.R")
+source("../functions/plot.wales.R")
+source("../functions/obs.mod.stats.R")
 library(data.table)
 library(ggplot2)
 library(lubridate)
 library(gtools)
-
-sim_runs <- list.dirs("../data/g2g_data/Sim_g2g_run/", full.names = FALSE, recursive = FALSE)
-sufi_runs <- list.dirs("../data/g2g_data/SUFI_g2g_run/", full.names = FALSE, recursive = FALSE)
-sim_files <- paste0(sim_runs, "/base_.dat_WA")
-sufi_files <- paste0(sufi_runs, "/base_.dat_WA")
-sim_path <- file.path("..", "data", "g2g_data","Sim_g2g_run")
-sufi_path <- file.path("..", "data", "g2g_data","SUFI_g2g_run")
+library(sf)
 
 
-
-
-## read in mod and obs
-sim_ts <- read.time.series(sim_files[19:22],sim_path, output = "model")
-sufi_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "model")
-obs_ts <- read.time.series(sufi_files[19:22],sufi_path, output = "observed")
-
-mod_ts <- list(sim = sim_ts, sufi = sufi_ts)
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
 ## read in the events
 events <- fread("../data/notable_events.csv")
 events_pre_2022 <- events[Year <= 2021,]
@@ -42,12 +32,9 @@ catchments_sf <- st_as_sf(
   crs = 27700,
   remove = FALSE
 )
-
 wales_poly <- st_union(wales)
-
 sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
 wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
-
 
 
 ## make list for each event, with sublist for mod & obs
@@ -72,7 +59,6 @@ for (event in names(events_list[[1]])) {
   events_list_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
 }
 
-filtered_qt <- lapply(events_list, lapply, filter.qt, qt = qt_dt)[[1]][[1]] ## only need to extract first list item because sim and sufi extract identical and storms are identical
 
 
 for (event in names(events_list_pivoted)) {
@@ -94,7 +80,7 @@ for (event in names(events_list_pivoted)) {
         g2g.id = g2g_id,
         storm.name = event,
         cdata = wales_cdata,
-        qt.data = filtered_qt,
+        qt.data = qt_dt,
         sufi =sufi_data
       )
       ggsave(
