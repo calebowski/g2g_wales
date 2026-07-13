@@ -38,8 +38,9 @@ library(grid)
 library(gridExtra)
 library(patchwork)
 library(gt)
+library(terra)
 source("../functions/load.g2g.runs.R")
-source("../functions/extract.g2g.qt.R")
+source("../functions/extract.g2g.grid.R")
 source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 source("../functions/obs.mod.stats.R")
@@ -675,7 +676,7 @@ Note here that rating change means that the observed outputs at those sites were
 
 
 rating_change_dt <- fread("../data/rating_change_g2g.csv")
-pme_dt_sufi <- pme_dt_list$sim
+pme_dt_sufi <- pme_dt_list$sufi
 
 pme_dt_sufi_rating <- merge(pme_dt_sufi, rating_change_dt, by = "G2G.ID")
 
@@ -757,12 +758,85 @@ ggplot(pme_clean, aes(x = rating_group, y = pme, fill = rating_group)) +
 
 ```
 
-## read in river gauge network
+
+## Test impact of slope heterogeneity
+
+
+```{r}
+
+wales_dem <- terra::rast("../data/topography/wales_dem_50m.tif")
+
+slope_rast <- terra::terrain(wales_dem, v = "slope", unit = "degrees")
+tri_rast   <- terra::terrain(wales_dem, v = "TRI")
+
+catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
+
+catchments_v <- terra::vect(catchments)
+
+print("Extracting metrics for each catchment...")
+slope_extracted <- terra::extract(slope_rast, catchments_v, fun = mean, na.rm = TRUE)
+tri_extracted   <- terra::extract(tri_rast, catchments_v, fun = mean, na.rm = TRUE)
+tri_range_extracted   <- terra::extract(tri_rast, catchments_v, fun = sd, na.rm = TRUE) ## range might be more interesting for heterogeneity ?
+
+terrain_dt <- data.table(
+  G2G.ID     = catchments$g2g_id, 
+  Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
+  Mean_TRI   = tri_extracted[[2]],
+  sd_TRI = tri_range_extracted[[2]]
+)
+
+# wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
+
+head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
+
+pme_tri <- merge(terrain_dt, merged_pme, by = "G2G.ID")
+
+
+plot(log(abs(sufi_mean_pme)) ~ sd_TRI, data = pme_tri)
+
+
+```
+
+
+## River gauge metrics
 
 ```{r}
 
 river_gauges <- fread("../data/rg_info_2022.csv")
 
+# 2. Convert the tabular data into a spatial sf object
+# We specify the coordinate columns and project it directly to British National Grid (27700)
+gauges_sf <- st_as_sf(
+  river_gauges, 
+  coords = c("X", "Y"), 
+  crs = 27700
+)
+
+# 3. Convert to a terra SpatVector so terra can process the distances
+gauges_v <- terra::vect(gauges_sf)
+
+# 4. Create the Euclidean Distance Raster 
+# Every pixel value in this new grid will represent the distance (in meters) to the closest rain gauge
+print("Generating proximity-to-gauge distance map...")
+gauge_dist_rast <- terra::distance(wales_dem, gauges_v)
+
+# 5. Extract the average gauge distance for each catchment polygon
+print("Extracting mean gauge distance per catchment...")
+dist_extracted <- terra::extract(gauge_dist_rast, catchments_v, fun = mean, na.rm = TRUE)
+gauge_dist_dt <- data.table(
+  G2G.ID     = catchments$g2g_id, 
+  mean_dist = dist_extracted[[2]]  # The second column holds the actual raster values
+)
+pme_dist <- merge(gauge_dist_dt, merged_pme, by = "G2G.ID")
+
+
+plot(log(abs(sufi_mean_pme)) ~ mean_dist, data = pme_dist)
+
+
+
+# 6. Append the new metric back to your master wales_cdata table
+# Dividing by 1000 converts the raw meters into kilometers, which makes regressions/plots much easier to read
+wales_cdata[, Mean_Gauge_Dist_Km := dist_extracted[[2]] / 1000]
 ```
 
 
