@@ -1,0 +1,154 @@
+---
+title: "Gridded output Storm events (Wales 2018-2021)"
+subtitle: "Sim & SUFI data"
+author: "Caleb Scutt"
+format:
+  html:
+    page-layout: full
+    toc: true
+    code-fold: true
+    fig-width: 10
+    fig-height: 5
+    embed-resources: true
+    theme: flatly
+  typst:
+    toc: true
+    fig-width: 7
+    fig-height: 5
+    margin:
+      x: 1in
+      y: 1in
+    fontsize: 11pt
+    section-numbering: 1.1.1
+    keep-typ: false
+execute:
+  warning: false
+  message: false
+---
+
+
+## Load functions and packages
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(gtools)
+library(sf)
+library(grid)
+library(gridExtra)
+library(patchwork)
+library(gt)
+library(terra)
+# source("../functions/load.g2g.runs.R")
+source("../functions/extract.g2g.grid.R")
+# source("../functions/qt.exceed.R")
+source("../functions/plot.wales.R")
+# source("../functions/obs.mod.stats.R")
+#
+```
+
+
+## Read in gridded output
+
+```{r}
+
+# g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+
+events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
+j <- 0
+storm_names <- c()
+for (i in 1:nrow(events_pre_2022)){
+ event <- events_pre_2022[i, ]
+        if (!is.na(event[, Storm_name])){
+            storm_name <- event[, Storm_name]
+        } else {
+            j <- j + 1
+            storm_name <- paste0("Unnamed_storm_", j) ## assign unnamed storms a name for reference to csv
+        }
+        storm_names[i] <- storm_name
+}
+
+## read in grids
+grid_path <- "../data/g2g_data/flow_grids/maxFlows_Sim"
+grid_files <- list.files(grid_path)
+g2g_event_grids <- lapply(file.path(grid_path,grid_files)[1:9], load.maxflow.event)
+names(g2g_event_grids) <- storm_names
+
+```
+
+## Read in gridded QT
+
+```{r}
+## read qt grids
+qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
+qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+qt_grids <- lapply(qt_grid_paths, function(f) normalise.to.corner(read.ascii(f)))
+names(qt_grids) <- qt_val
+check.grid.alignment(qt_grids) ## sanitise check
+qt_rasts <- lapply(qt_grids, ascii.to.rast) ## convert to terra format
+names(qt_rasts) <- qt_val ## name by qt val
+qt_order <- c("qmed", "q5", "q10", "q25", "q50", "q100", "q250", "q1000")
+qt_rasts <- qt_rasts[intersect(qt_order, names(qt_rasts))]
+
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+```
+
+## Plot
+
+```{r}
+
+catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
+## filter by wales
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+wales_poly <- st_union(wales)
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
+g2g_data <- wales_cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
+
+
+event_exceedance_grids <- lapply(g2g_event_grids, build.exceedance.grid, qt_rasts)
+
+for (storm in storm_names){
+    p <- plot.gridded.exceedance.map(event_exceedance_grids[[storm]], wales, event_label = storm, g2g.sites = g2g_data)
+    print(p)
+}
+
+
+# # -- Composite "worst case, any event" map --
+# composite_max <- build_composite_max(maxflow_rasts)
+# composite_exceedance <- build_exceedance_grid(composite_max, qt_rasts)
+# plot_exceedance_map(composite_exceedance, wales, event_label = "Composite (all 9 events)")
+
+# # -- Extract values at Aim 3 "ungauged test" site coordinates --
+# ## sites_df needs: site_id, easting, northing (BNG, EPSG:27700)
+# aim3_sites <- data.frame(
+#   site_id  = c("SITE_A", "SITE_B"),
+#   easting  = c(260000, 275500),
+#   northing = c(210000, 198200)
+# )
+# aim3_extracted <- extract_at_sites(composite_max, aim3_sites)
+# print(aim3_extracted)
+
+
+```
+
+
+## next things to do
+
+- overlay g2g sites?
+- overlay raingauge ?
+- topography
+- 

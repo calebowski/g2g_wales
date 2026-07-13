@@ -91,6 +91,101 @@ make.qt.csv <- function(qt.grid.list, cdata, write = FALSE) {
 }
 
 
+## Normalise every grid to a common CORNER-origin convention
+normalise.to.corner <- function(g) {
+  if (g$CenterOrCorner == "center") {
+    g$x0 <- g$x0 - g$gridSize / 2
+    g$y0 <- g$y0 - g$gridSize / 2
+    g$CenterOrCorner <- "corner"
+    cat("  -> converted", basename(g$fileName), "from CENTER to CORNER origin\n")
+  } else if (g$CenterOrCorner == "NA") {
+    stop("Cannot normalise grid with unknown origin convention: ", g$fileName)
+  }
+  g
+}
+
+
+## Check a set of grids share identical dimensions/origin
+##    after normalisation -- stop loudly if not, rather than
+##    silently comparing misaligned cells.
+check.grid.alignment <- function(grid_list, tol = 1e-6) {
+  ref <- grid_list[[1]]
+  for (i in seq_along(grid_list)[-1]) {
+    g <- grid_list[[i]]
+    ok <- (g$nX == ref$nX) && (g$nY == ref$nY) &&
+      (abs(g$x0 - ref$x0) < tol) && (abs(g$y0 - ref$y0) < tol) &&
+      (abs(g$gridSize - ref$gridSize) < tol)
+    if (!ok) {
+      stop(sprintf(
+        "Grid mismatch: '%s' does not align with reference '%s'.\n  ref: nX=%d nY=%d x0=%g y0=%g cell=%g\n  this: nX=%d nY=%d x0=%g y0=%g cell=%g",
+        g$fileName, ref$fileName, ref$nX, ref$nY, ref$x0, ref$y0, ref$gridSize,
+        g$nX, g$nY, g$x0, g$y0, g$gridSize
+      ))
+    }
+  }
+  invisible(TRUE)
+}
+
+
+
+ascii.to.rast <- function(g, crs = "EPSG:27700") {
+  m <- g$data
+  m[m == g$noVal] <- NA
+  r <- rast(
+    m,
+    extent = ext(g$x0, g$x0 + g$nX * g$gridSize, g$y0, g$y0 + g$nY * g$gridSize),
+    crs = crs
+  )
+  names(r) <- tools::file_path_sans_ext(basename(g$fileName))
+  r
+}
+#
+
+load.maxflow.event <- function(file_path) {
+  g <- normalise.to.corner(read.ascii(file_path))
+  ascii.to.rast(g)
+}
+
+build.exceedance.grid <- function(maxflow_rast, qt_rasts_ordered) {
+  # align all threshold rasters to the maxflow grid's extent/resolution as a safety net
+  qt_rasts_ordered <- lapply(qt_rasts_ordered, function(r) resample(r, maxflow_rast, method = "near"))
+
+  category <- rast(maxflow_rast)
+  values(category) <- 0L  # 0 = "None" (no threshold exceeded)
+
+  thresh_names <- names(qt_rasts_ordered)
+  for (i in seq_along(qt_rasts_ordered)) {
+    thr <- qt_rasts_ordered[[i]]
+    exceeded <- (maxflow_rast >= thr)  # NA propagates automatically where either grid is NA
+    category[exceeded] <- i
+  }
+
+  # mask out cells where the flow grid itself has no data at all
+  category <- mask(category, maxflow_rast)
+
+  levels(category) <- data.frame(
+    id = 0:length(thresh_names),
+    category = c("None", thresh_names)
+  )
+  category
+}
+
+extract.at.sites <- function(rast_obj, sites_df) {
+  pts <- vect(sites_df, geom = c("easting", "northing"), crs = crs(rast_obj))
+  vals <- extract(rast_obj, pts)
+  cbind(sites_df, vals[, -1, drop = FALSE])
+}
+
+
+crop.mask.to.wales <- function(rast_obj, wales_sf) {
+  wales_vect <- vect(wales_sf)
+  wales_vect <- project(wales_vect, crs(rast_obj))
+  r <- crop(rast_obj, wales_vect)
+  r <- mask(r, wales_vect)
+  r
+}
+
+
 
 ########################################### 
 #    code to create csv table below       #
