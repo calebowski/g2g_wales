@@ -40,6 +40,7 @@ library(gridExtra)
 library(patchwork)
 library(gt)
 library(terra)
+library(elevatr)
 # source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.grid.R")
 # source("../functions/qt.exceed.R")
@@ -118,13 +119,16 @@ wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 
 g2g_data <- wales_cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
 
-
 event_exceedance_grids <- lapply(g2g_event_grids, build.exceedance.grid, qt_rasts)
 
 for (storm in storm_names){
     p <- plot.gridded.exceedance.map(event_exceedance_grids[[storm]], wales, event_label = storm, g2g.sites = g2g_data)
     print(p)
 }
+
+
+
+
 
 
 # # -- Composite "worst case, any event" map --
@@ -146,9 +150,140 @@ for (storm in storm_names){
 ```
 
 
+## FOCUS ON SPECIFIC CATCHMENTS?
+
+### Elwy at Ciara
+
+```{r}
+ciara_exceedance_grid <- event_exceedance_grids$Ciara
+catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
+elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
+elwy_catchment_sf <- catchments[catchments$g2g_id == elwy_catchment_id,]
+
+
+# target_catchment <- st_transform(target_catchment, st_crs(g2g_rast))
+
+rast_cropped <- terra::crop(ciara_exceedance_grid, elwy_catchment_sf)
+
+
+rast_cutout <- terra::mask(rast_cropped, elwy_catchment_sf)
+df_cutout <- as.data.frame(rast_cutout, xy = TRUE)
+
+names(df_cutout)[3] <- "value" 
+
+threshold_colours <- c(
+    "None"  = "white",
+    "qmed"  = "#08306b",
+    "q5"    = "#2171b5",
+    "q10"   = "#41b6c4",
+    "q25"   = "#ffff33",
+    "q50"   = "#fd8d3c",
+    "q100"  = "#e31a1c",
+    "q250"  = "#99000d",
+    "q1000" = "#4d0000"
+  )
+
+ggplot() +
+  geom_raster(data = df_cutout, aes(x = x, y = y, fill = value)) +
+  
+  geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
+  
+
+  coord_sf(datum = st_crs(27700)) +
+  labs(title = "G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
+  theme_minimal() +
+  scale_fill_manual(
+      values = threshold_colours, 
+      breaks = names(threshold_colours), # Removed the trailing comma here
+      name = "QT Threshold exceeded", 
+      drop = FALSE, 
+      na.value = NA
+    ) 
+
+
+```
+
+
+## Extract topography and calculate TRI
+
+```{r}
+# all_zips <- list.files(
+#   path = "../data/topography/os_raw",
+#   pattern = "\\.zip$",
+#   recursive = TRUE,
+#   full.names = TRUE
+# )
+
+# # (tolower makes sure we capture it regardless of upper/lower case names)
+# wales_prefixes <- "/(sh|sj|sm|sn|so|ss|st)/"
+# welsh_zips <- all_zips[grepl(wales_prefixes, tolower(all_zips))]
+
+# for (zip_file in welsh_zips) {
+#   unzip(zip_file, exdir = dirname(zip_file))
+# }
+
+# all_tiles <- list.files(
+#   path = "../data/topography/os_raw", 
+#   pattern = "\\.asc$", 
+#   recursive = TRUE, 
+#   ignore.case = TRUE,
+#   full.names = TRUE
+# )
+
+# # keep welsh tiles
+# wales_tile_paths <- all_tiles[grepl(wales_prefixes, tolower(all_tiles))]
+
+# print(length(wales_tile_paths))
+
+# dem_virtual <- terra::vrt(wales_tile_paths)
+
+# crs(dem_virtual) <- "EPSG:27700"
+
+# dem_virtual <- terra::vrt(wales_tile_paths)
+# crs(dem_virtual) <- "EPSG:27700"
+
+# wales_dem <- terra::crop(dem_virtual, wales)
+# wales_dem <- terra::mask(wales_dem, wales)
+
+# writeRaster(wales_dem, "../data/topography/wales_dem_50m.tif", overwrite = TRUE)
+wales_dem <- terra::rast("../data/topography/wales_dem_50m.tif")
+
+slope_rast <- terra::terrain(wales_dem, v = "slope", unit = "degrees")
+tri_rast   <- terra::terrain(wales_dem, v = "TRI")
+
+
+catchments_v <- terra::vect(catchments)
+
+print("Extracting metrics for each catchment...")
+slope_extracted <- terra::extract(slope_rast, catchments_v, fun = mean, na.rm = TRUE)
+tri_extracted   <- terra::extract(tri_rast, catchments_v, fun = mean, na.rm = TRUE)
+tri_range_extracted   <- terra::extract(tri_rast, catchments_v, fun = sd, na.rm = TRUE) ## range might be more interesting for heterogeneity ?
+
+terrain_dt <- data.table(
+  G2G.ID     = catchments$g2g_id, 
+  Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
+  Mean_TRI   = tri_extracted[[2]]
+)
+
+wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
+
+head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
+
+```
+
+
+## RAINGAUGE DENSITY METRICS
+
+```{r}
+
+
+
+```
+
 ## next things to do
 
 - overlay g2g sites?
 - overlay raingauge ?
-- topography
+- topography 
+  - downloaded OS map of topography.
 - 

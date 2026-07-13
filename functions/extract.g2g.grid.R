@@ -147,26 +147,26 @@ load.maxflow.event <- function(file_path) {
 }
 
 build.exceedance.grid <- function(maxflow_rast, qt_rasts_ordered) {
-  # align all threshold rasters to the maxflow grid's extent/resolution as a safety net
-  qt_rasts_ordered <- lapply(qt_rasts_ordered, function(r) resample(r, maxflow_rast, method = "near"))
+  qt_rasts_ordered <- lapply(qt_rasts_ordered, function(r) resample(r, maxflow_rast, method = "near")) ## this aligns the qt 
+
+  # a cell only counts as "on network" if it has a threshold value in AT LEAST ONE qt grid
+  on_network <- !is.na(qt_rasts_ordered[[1]])
+  for (r in qt_rasts_ordered[-1]) on_network <- on_network | !is.na(r)
 
   category <- rast(maxflow_rast)
-  values(category) <- 0L  # 0 = "None" (no threshold exceeded)
+  values(category) <- NA_integer_        # <- NA everywhere by default, not 0
 
   thresh_names <- names(qt_rasts_ordered)
   for (i in seq_along(qt_rasts_ordered)) {
-    thr <- qt_rasts_ordered[[i]]
-    exceeded <- (maxflow_rast >= thr)  # NA propagates automatically where either grid is NA
+    exceeded <- (maxflow_rast >= qt_rasts_ordered[[i]])
     category[exceeded] <- i
   }
 
-  # mask out cells where the flow grid itself has no data at all
-  category <- mask(category, maxflow_rast)
+  # only fall back to "None" (0) for on-network cells that didn't exceed anything
+  category[on_network & is.na(category)] <- 0L
 
-  levels(category) <- data.frame(
-    id = 0:length(thresh_names),
-    category = c("None", thresh_names)
-  )
+  category <- mask(category, maxflow_rast)   # still respect the flow grid's own NODATA
+  levels(category) <- data.frame(id = 0:length(thresh_names), category = c("None", thresh_names))
   category
 }
 

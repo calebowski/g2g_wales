@@ -326,7 +326,6 @@ crop.mask.to.wales <- function(rast_obj, wales_sf) {
   r <- mask(r, wales_vect)
   r
 }
-
 plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "", g2g.sites = NULL) {
   
   threshold_colours <- c(
@@ -341,33 +340,46 @@ plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "
     "q1000" = "#4d0000"
   )
 
-
   category_rast <- crop.mask.to.wales(category_rast, wales_sf)
   df <- as.data.frame(category_rast, xy = TRUE)
   names(df)[3] <- "category"
+  df$category <- factor(df$category, levels = names(threshold_colours))
 
-  ggplot() +
+  # 1. Build the base plot
+  p <- ggplot() +
     geom_raster(data = df, aes(x = x, y = y, fill = category)) +
-    geom_sf(data = wales_sf, fill = NA, colour = "black", linewidth = 0.3) +
-    if (!is.null(g2g.sites)) {
-      geom_point(
-        data = g2g.sites,
-        aes(
-          x = G2G.Easting,
-          y = G2G.Northing,
-          size = CATCHMENTSIZE),
-        alpha = 0.9,
-        shape = 21,
-        color = "black"
-      )
-    } +
-    scale_fill_manual(values = threshold_colours, name = "Threshold", na.value = NA) +
+    geom_sf(data = wales_sf, fill = NA, colour = "black", linewidth = 0.3)
+  
+  # 2. Conditionally add the sites layer
+  if (!is.null(g2g.sites)) {
+    p <- p + geom_point(
+      data = g2g.sites,
+      aes(x = G2G.Easting, y = G2G.Northing, size = CATCHMENTSIZE),
+      alpha = 0.9,
+      shape = 21,
+      color = "black",
+      fill = "black"
+    )
+  } 
+  
+  # 3. Add the remaining scales and formatting
+  p <- p +
+    scale_fill_manual(
+      values = threshold_colours, 
+      breaks = names(threshold_colours), # Removed the trailing comma here
+      name = "QT Threshold exceeded", 
+      drop = FALSE, 
+      na.value = NA
+    ) +
     coord_sf(datum = st_crs(27700)) +
-    labs(title = paste("QT exceedance -", event_label), x = NULL, y = NULL) +
+    labs(title = paste("QT gridded exceedance -", event_label), x = NULL, y = NULL) +
     theme_minimal() + 
-    theme(axis.text.x = element_blank(),
-        axis.text.y = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.ticks.y = element_blank()
-        )
+    theme(
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank()
+    )
+    
+  return(p)
 }
