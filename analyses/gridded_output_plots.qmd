@@ -72,8 +72,10 @@ for (i in 1:nrow(events_pre_2022)){
 }
 
 ## read in grids
-grid_path <- "../data/g2g_data/flow_grids/maxFlows_Sim"
-grid_files <- list.files(grid_path)
+sim_path <- "../data/g2g_data/flow_grids/maxFlows_Sim"
+sufi_path <- "../data/g2g_data/flow_grids/maxFlows_SUFI"
+paths <- list(sim = sim_path, sufi =  sufi_path)
+grid_files <- lapply(paths, list.files)
 g2g_event_grids <- lapply(file.path(grid_path,grid_files)[1:9], load.maxflow.event)
 names(g2g_event_grids) <- storm_names
 
@@ -95,6 +97,42 @@ qt_rasts <- qt_rasts[intersect(qt_order, names(qt_rasts))]
 
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700)
+
+```
+
+
+## cutout shape file
+
+```{r}
+# # Catchment polygons (all regions)
+# catchments_sf <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
+
+# # Wales boundary polygon
+# wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+
+# # Match CRS
+# wales <- st_transform(wales, st_crs(catchments_sf))
+
+# # Dissolve to one Wales geometry (prevents duplicate overlaps)
+# wales_poly <- st_union(wales)
+
+# # Keep only catchments that intersect Wales
+# catchments_wales <- catchments_sf[st_within(catchments_sf, wales_poly, sparse = FALSE), ]
+# catchments_wales <- catchments_sf[st_within(catchments_sf, wales_poly, sparse = FALSE), ]
+# catchment_wales <- catchments_sf[catchments_sf$g2g_id %in% wales_cdata$G2G.ID, ]
+# # Optional: write out
+# dir.create("../data/wales_catchments_sf", showWarnings = FALSE, recursive = TRUE)
+
+# st_write(
+#   catchment_wales,
+#   dsn = "../data/wales_catchments_sf",
+#   layer = "wales_catchments_sf",
+#   driver = "ESRI Shapefile",
+#   delete_layer = TRUE
+# )
+
+wales_catchment_sf <- st_read("../data/wales_catchments_sf")
+
 
 ```
 
@@ -122,7 +160,7 @@ g2g_data <- wales_cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
 event_exceedance_grids <- lapply(g2g_event_grids, build.exceedance.grid, qt_rasts)
 
 for (storm in storm_names){
-    p <- plot.gridded.exceedance.map(event_exceedance_grids[[storm]], wales, event_label = storm, g2g.sites = g2g_data)
+    p <- plot.gridded.exceedance.map(event_exceedance_grids[[storm]], wales, event_label = storm, g2g.sites = NULL, catchments_sf = wales_catchment_sf)
     print(p)
 }
 
@@ -246,30 +284,36 @@ ggplot() +
 # wales_dem <- terra::mask(wales_dem, wales)
 
 # writeRaster(wales_dem, "../data/topography/wales_dem_50m.tif", overwrite = TRUE)
-wales_dem <- terra::rast("../data/topography/wales_dem_50m.tif")
+# wales_dem <- terra::rast("../data/topography/wales_dem_50m.tif")
 
-slope_rast <- terra::terrain(wales_dem, v = "slope", unit = "degrees")
-tri_rast   <- terra::terrain(wales_dem, v = "TRI")
+# slope_rast <- terra::terrain(wales_dem, v = "slope", unit = "degrees")
+# tri_rast   <- terra::terrain(wales_dem, v = "TRI")
 
 
-catchments_v <- terra::vect(catchments)
+# catchments_v <- terra::vect(catchments)
 
-print("Extracting metrics for each catchment...")
-slope_extracted <- terra::extract(slope_rast, catchments_v, fun = mean, na.rm = TRUE)
-tri_extracted   <- terra::extract(tri_rast, catchments_v, fun = mean, na.rm = TRUE)
-tri_range_extracted   <- terra::extract(tri_rast, catchments_v, fun = sd, na.rm = TRUE) ## range might be more interesting for heterogeneity ?
+# print("Extracting metrics for each catchment...")
+# slope_extracted <- terra::extract(slope_rast, catchments_v, fun = mean, na.rm = TRUE)
+# tri_extracted   <- terra::extract(tri_rast, catchments_v, fun = mean, na.rm = TRUE)
+# tri_range_extracted   <- terra::extract(tri_rast, catchments_v, fun = sd, na.rm = TRUE) ## range might be more interesting for heterogeneity ?
 
-terrain_dt <- data.table(
-  G2G.ID     = catchments$g2g_id, 
-  Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
-  Mean_TRI   = tri_extracted[[2]]
-)
+# terrain_dt <- data.table(
+#   G2G.ID     = catchments$g2g_id, 
+#   Mean_Slope = slope_extracted[[2]],  
+#   Mean_TRI   = tri_extracted[[2]]
+# )
 
-wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
+# wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
 
-head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
+# head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
 
 ```
+
+## TODO
+- add the catchment polygons
+- export shape file of just wales catchments
+
+
 
 
 ## RAINGAUGE DENSITY METRICS
@@ -286,4 +330,4 @@ head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
 - overlay raingauge ?
 - topography 
   - downloaded OS map of topography.
-- 
+

@@ -326,7 +326,8 @@ crop.mask.to.wales <- function(rast_obj, wales_sf) {
   r <- mask(r, wales_vect)
   r
 }
-plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "", g2g.sites = NULL) {
+
+plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "", g2g.sites = NULL, catchments_sf) {
   
   threshold_colours <- c(
     "None"  = "white",
@@ -348,7 +349,8 @@ plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "
   # 1. Build the base plot
   p <- ggplot() +
     geom_raster(data = df, aes(x = x, y = y, fill = category)) +
-    geom_sf(data = wales_sf, fill = NA, colour = "black", linewidth = 0.3)
+    geom_sf(data = wales_sf, fill = NA, colour = "black", linewidth = 0.3) +
+    geom_sf(data = catchments_sf, fill = NA, colour = "black", linewidth = 0.4)
   
   # 2. Conditionally add the sites layer
   if (!is.null(g2g.sites)) {
