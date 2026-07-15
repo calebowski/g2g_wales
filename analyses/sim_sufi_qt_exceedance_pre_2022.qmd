@@ -39,6 +39,7 @@ library(gridExtra)
 library(patchwork)
 library(gt)
 library(terra)
+library(lme4)
 source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.grid.R")
 source("../functions/qt.exceed.R")
@@ -942,64 +943,34 @@ nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
   added_cdata <- merge(wide, wales_cdata, by = "G2G.ID")
 })
 
+pod_table <- nrw_thresh_exceed_cat$sufi[
+  exceed_class %in% c("both", "obs only", "mod only"),
+
+  .(
+    hits   = sum(exceed_class == "both"),
+    misses = sum(exceed_class == "obs only"),
+    false_alarms = sum(exceed_class == "mod only")
+  ),
+
+  by = G2G.ID
+]
+
+pod_table[, POD := hits / (hits + misses)]
+pod_table[, FAR := false_alarms / (hits + false_alarms)]
 
 
-# tri_gauge_lookup <- unique(pme_dist_tri$sufi[, .(G2G.ID, Mean_TRI, Mean_Gauge_Dist_Km)])
+pod_table <- merge(
+  pod_table,
+  wales_cdata,
+  by = "G2G.ID"
+)
 
-# detection_data   <- merge(detection_data, tri_gauge_lookup, by = "G2G.ID", all.x = TRUE)
-# false_alarm_data <- merge(false_alarm_data, tri_gauge_lookup, by = "G2G.ID", all.x = TRUE)
+setorder(pod_table, POD)
 
-# ## check nothing got lost in the join before modelling
-# sum(is.na(detection_data$Mean_TRI))
-# sum(is.na(detection_data$Mean_Gauge_Dist_Km))
-
-
-# exp(fixef(detection_model_sufi))
-
-
-
-# category_counts <- nrw_thresh_exceed_cat$sufi[
-#   ,
-#   .(N = .N),
-#   by = .(G2G.ID, exceed_class)
-# ]
-
-# fwrite(category_counts, "../data/nrw_thresh_exceed_counts_g2g_site.csv")
-
-
-
-# totals <- nrw_thresh_exceed_cat$sufi[
-#   ,
-#   .(total = .N),
-#   by = G2G.ID
-# ]
-
-# obs <- nrw_thresh_exceed_cat$sufi[
-#   exceed_class == "obs only",
-#   .(obs_only = .N),
-#   by = G2G.ID
-# ]
-
-
-# dat <- merge(totals, obs, by = "G2G.ID", all.x = TRUE)
-# dat[is.na(obs_only), obs_only := 0]
-# dat <- merge(dat, wales_cdata, by = "G2G.ID")
-
-# glm(
-#   cbind(obs_only, total - obs_only) ~ log(CATCHMENTSIZE),
-#   family = binomial,
-#   data = dat
+# fwrite(
+#   pod_table,
+#   "../data/nrw_thresh_exceed_pod_by_g2g_site.csv"
 # )
-
-
-# plots <- setNames(lapply(names(nrw_thresh_exceed_cat), function(mod_config){
-#   sim_dt <- nrw_thresh_exceed_cat[[mod_config]]
-#   storm_list <- list()
-#   for (storm_name in unique(sim_dt$Storm)){
-#     storm_list[[storm_name]] <- plot.wales.nrw.thresh(sim_dt, storm.name = storm_name, wales = wales)
-#   }
-#   return(storm_list)
-# }),  names(nrw_thresh_exceed_cat))
 
 storm_names <- unique(nrw_thresh_exceed_cat$sim$Storm)
 
@@ -1038,14 +1009,30 @@ detection_model_sufi <- glmer(
 )
 summary(detection_model_sufi)
 
-FAR_model_sufi <- glmer(
-  FA ~  log(CATCHMENTSIZE) +mean_dist_km + sd_TRI +
-    (1 | G2G.ID) + (1 | Storm),
-  data = far_dt$sufi,
-  family = binomial(link = "logit"),
-  control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
-)
-summary(FAR_model_sufi)
+
+
+
+site_hit_rates <- as.data.table(model.frame(detection_model_sufi))[
+  , .(hit_rate = mean(hit), n = .N), by = G2G.ID]
+table(site_hit_rates$hit_rate %in% c(0,1))
+site_hit_rates[, extreme := hit_rate %in% c(0,1)]
+
+# does perfect separation cluster among low-n sites?
+site_hit_rates[, .(mean_n = mean(n), min_n = min(n), max_n = max(n)), by = extreme]
+
+# visualise directly
+ggplot(site_hit_rates, aes(x = n, y = hit_rate, color = extreme)) +
+  geom_jitter(width = 0.1, height = 0.02) +
+  labs(title = "Site hit rate vs number of storms observed")
+
+# FAR_model_sufi <- glmer(
+#   FA ~  log(CATCHMENTSIZE) + mean_dist_km+sd_TRI +
+#     (1 | G2G.ID) + (1 | Storm),
+#   data = far_dt$sufi,
+#   family = binomial(link = "logit"),
+#   control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
+# )
+# summary(FAR_model_sufi)
 
 
 ```

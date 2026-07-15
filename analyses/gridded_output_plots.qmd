@@ -186,17 +186,18 @@ jorge_pend <-  as.POSIXct(paste(2020, 3, 9, sep="-"), tz="GMT")
 
 events_list <- lapply(events_list, function(config){
 
-  config$Ciara$obs <- config$Ciara$obs[DATE_TIME >= ciara_pstart &
-                     DATE_TIME <= ciara_pend, ]
 
-  config$Dennis$obs <- config$Dennis$obs[DATE_TIME >= dennis_pstart &
-                      DATE_TIME <= dennis_pend, ]
+  config$Ciara <- lapply(config$Ciara, function(x) x[DATE_TIME >= ciara_pstart &
+                     DATE_TIME <= ciara_pend, ] ) 
 
-  config$Unnamed_storm_2$obs <- config$Unnamed_storm_2$obs[DATE_TIME >= unnamed_2_pstart &
-                         DATE_TIME <= unnamed_2_pend, ]
+  config$Dennis<-  lapply(config$Dennis, function(x) x[DATE_TIME >= dennis_pstart &
+                     DATE_TIME <= dennis_pend, ] ) 
 
-  config$Jorge$obs <- config$Jorge$obs[DATE_TIME >= jorge_pstart &
-                     DATE_TIME <= jorge_pend, ]
+  config$Unnamed_storm_2 <- lapply(config$Unnamed_storm_2, function(x) x[DATE_TIME >= unnamed_2_pstart &
+                     DATE_TIME <= unnamed_2_pend, ] ) 
+
+  config$Jorge <- lapply(config$Jorge, function(x) x[DATE_TIME >= jorge_pstart &
+                     DATE_TIME <= jorge_pend, ] ) 
 
   config
 })
