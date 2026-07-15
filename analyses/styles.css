@@ -1,0 +1,13 @@
+
+#TOC {
+  font-size: 0.85rem;
+}
+
+#TOC .nav-link {
+  padding-top: 0.15rem;
+  padding-bottom: 0.15rem;
+}
+
+.sidebar nav[role="doc-toc"] {
+  font-size: 0.85rem;
+}

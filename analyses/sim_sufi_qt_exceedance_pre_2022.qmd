@@ -780,12 +780,12 @@ terrain_dt <- data.table(
   sd_TRI = tri_range_extracted[[2]]
 )
 
-# wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
+wales_cdata <- merge(wales_cdata, terrain_dt, by = "G2G.ID", all.x = TRUE)
 
 # head(wales_cdata[, .(G2G.ID, River.Name, Mean_Slope, Mean_TRI)])
 # merged_pme <- merge(pme_dt_list$sim, pme_dt_list$sufi)
 
-pme_tri_list <- lapply(pme_dt_list, function(x) merge(x, terrain_dt, by = "G2G.ID"))
+# pme_tri_list <- lapply(pme_dt_list, function(x) merge(x, terrain_dt, by = "G2G.ID"))
 
 
 
@@ -816,24 +816,25 @@ print("Extracting mean gauge distance per catchment...")
 dist_extracted <- terra::extract(gauge_dist_rast, catchments_v, fun = mean, na.rm = TRUE)
 gauge_dist_dt <- data.table(
   G2G.ID     = catchments$g2g_id, 
-  mean_dist = dist_extracted[[2]]  
+  mean_dist = dist_extracted[[2]],  
+  mean_dist_km = dist_extracted[[2]] /1000 
 )
 
 
-# pme_dist_tri <- merge(gauge_dist_dt, pme_tri, by = "G2G.ID")
-pme_dist_tri <- lapply(pme_tri_list, function(x) merge(x, gauge_dist_dt, by = "G2G.ID"))
+# # pme_dist_tri <- merge(gauge_dist_dt, pme_tri, by = "G2G.ID")
+# pme_dist_tri <- lapply(pme_tri_list, function(x) merge(x, gauge_dist_dt, by = "G2G.ID"))
 
 
-lapply(pme_dist_tri, function(x){
-  x[, log_abs_pme := log(abs(pme))]
-  x[, Mean_Gauge_Dist_Km := mean_dist / 1000]
-})
+# lapply(pme_dist_tri, function(x){
+#   x[, log_abs_pme := log(abs(pme))]
+#   x[, Mean_Gauge_Dist_Km := mean_dist / 1000]
+# })
 
 
 # plot(log(abs(sufi_mean_pme)) ~ mean_dist, data = pme_dist)
 
+wales_cdata <- merge(wales_cdata, gauge_dist_dt, by = "G2G.ID", all.x = TRUE)
 
-wales_cdata[, Mean_Gauge_Dist_Km := dist_extracted[[2]] / 1000] 
 ```
 
 
@@ -858,18 +859,18 @@ wales_cdata[, Mean_Gauge_Dist_Km := dist_extracted[[2]] / 1000]
 #     mean_dist_z := scale(mean_dist),
 #     log_catchment_z := scale(log(CATCHMENTSIZE)))
 #   ]
-library(lme4)
+# library(lme4)
 
-sim_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
-                 (1 | G2G.ID) + (1 | Storm),
-               data = pme_dist_tri$sim)
+# sim_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
+#                  (1 | G2G.ID) + (1 | Storm),
+#                data = pme_dist_tri$sim)
 
-summary(sim_model)
+# summary(sim_model)
 
-sufi_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
-                 (1 | G2G.ID) + (1 | Storm),
-               data = pme_dist_tri$sufi)
-summary(sufi_model)
+# sufi_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
+#                  (1 | G2G.ID) + (1 | Storm),
+#                data = pme_dist_tri$sufi)
+# summary(sufi_model)
 
 
 ```
@@ -943,38 +944,52 @@ nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
 
 
 
-category_counts <- nrw_thresh_exceed_cat$sufi[
-  ,
-  .(N = .N),
-  by = .(G2G.ID, exceed_class)
-]
+# tri_gauge_lookup <- unique(pme_dist_tri$sufi[, .(G2G.ID, Mean_TRI, Mean_Gauge_Dist_Km)])
 
-fwrite(category_counts, "../data/nrw_thresh_exceed_counts_g2g_site.csv")
+# detection_data   <- merge(detection_data, tri_gauge_lookup, by = "G2G.ID", all.x = TRUE)
+# false_alarm_data <- merge(false_alarm_data, tri_gauge_lookup, by = "G2G.ID", all.x = TRUE)
 
-
-
-totals <- nrw_thresh_exceed_cat$sufi[
-  ,
-  .(total = .N),
-  by = G2G.ID
-]
-
-obs <- nrw_thresh_exceed_cat$sufi[
-  exceed_class == "obs only",
-  .(obs_only = .N),
-  by = G2G.ID
-]
+# ## check nothing got lost in the join before modelling
+# sum(is.na(detection_data$Mean_TRI))
+# sum(is.na(detection_data$Mean_Gauge_Dist_Km))
 
 
-dat <- merge(totals, obs, by = "G2G.ID", all.x = TRUE)
-dat[is.na(obs_only), obs_only := 0]
-dat <- merge(dat, wales_cdata, by = "G2G.ID")
+# exp(fixef(detection_model_sufi))
 
-glm(
-  cbind(obs_only, total - obs_only) ~ log(CATCHMENTSIZE),
-  family = binomial,
-  data = dat
-)
+
+
+# category_counts <- nrw_thresh_exceed_cat$sufi[
+#   ,
+#   .(N = .N),
+#   by = .(G2G.ID, exceed_class)
+# ]
+
+# fwrite(category_counts, "../data/nrw_thresh_exceed_counts_g2g_site.csv")
+
+
+
+# totals <- nrw_thresh_exceed_cat$sufi[
+#   ,
+#   .(total = .N),
+#   by = G2G.ID
+# ]
+
+# obs <- nrw_thresh_exceed_cat$sufi[
+#   exceed_class == "obs only",
+#   .(obs_only = .N),
+#   by = G2G.ID
+# ]
+
+
+# dat <- merge(totals, obs, by = "G2G.ID", all.x = TRUE)
+# dat[is.na(obs_only), obs_only := 0]
+# dat <- merge(dat, wales_cdata, by = "G2G.ID")
+
+# glm(
+#   cbind(obs_only, total - obs_only) ~ log(CATCHMENTSIZE),
+#   family = binomial,
+#   data = dat
+# )
 
 
 # plots <- setNames(lapply(names(nrw_thresh_exceed_cat), function(mod_config){
@@ -1002,7 +1017,36 @@ comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
 comparison_plots
 
 
+
+hits_dt <- lapply(nrw_thresh_exceed_cat, function(dt){
+  dt <- dt[obs == TRUE]
+  dt[, hit := as.integer(mod)]
+})
+
+far_dt <- lapply(nrw_thresh_exceed_cat, function(dt){
+  dt <- dt[obs == FALSE]
+  dt[, FA := as.integer(mod)]
+})
+
 ## need to do a podfar
+detection_model_sufi <- glmer(
+  hit ~  log(CATCHMENTSIZE) + mean_dist_km + sd_TRI +
+    (1 | G2G.ID) + (1 | Storm),
+  data = hits_dt$sufi,
+  family = binomial(link = "logit"),
+  control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
+)
+summary(detection_model_sufi)
+
+FAR_model_sufi <- glmer(
+  FA ~  log(CATCHMENTSIZE) +mean_dist_km + sd_TRI +
+    (1 | G2G.ID) + (1 | Storm),
+  data = far_dt$sufi,
+  family = binomial(link = "logit"),
+  control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
+)
+summary(FAR_model_sufi)
+
 
 ```
 

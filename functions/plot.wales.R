@@ -365,14 +365,12 @@ plot.gridded.exceedance.map <- function(category_rast, wales_sf, event_label = "
   } 
   
   # 3. Add the remaining scales and formatting
-  p <- p +
-    scale_fill_manual(
-      values = threshold_colours, 
-      breaks = names(threshold_colours), # Removed the trailing comma here
-      name = "QT Threshold exceeded", 
-      drop = FALSE, 
-      na.value = NA
-    ) +
+  p <- p + scale_fill_manual(
+    values = threshold_colours,
+    name = "QT Threshold exceeded",
+    drop = TRUE,
+    na.value = NA
+  ) +
     coord_sf(datum = st_crs(27700)) +
     labs(title = paste("QT gridded exceedance -", event_label), x = NULL, y = NULL) +
     theme_minimal() + 

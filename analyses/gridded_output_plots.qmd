@@ -11,6 +11,7 @@ format:
     fig-height: 5
     embed-resources: true
     theme: flatly
+    css: styles.css
   typst:
     toc: true
     fig-width: 7
@@ -41,11 +42,14 @@ library(patchwork)
 library(gt)
 library(terra)
 library(elevatr)
-# source("../functions/load.g2g.runs.R")
+source("../functions/load.g2g.runs.R")
 source("../functions/extract.g2g.grid.R")
 # source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 # source("../functions/obs.mod.stats.R")
+source("../functions/qt.exceed.R")
+source("../functions/plot.wales.R")
+source("../functions/obs.mod.stats.R")
 #
 ```
 
@@ -75,9 +79,22 @@ for (i in 1:nrow(events_pre_2022)){
 sim_path <- "../data/g2g_data/flow_grids/maxFlows_Sim"
 sufi_path <- "../data/g2g_data/flow_grids/maxFlows_SUFI"
 paths <- list(sim = sim_path, sufi =  sufi_path)
-grid_files <- lapply(paths, list.files)
-g2g_event_grids <- lapply(file.path(grid_path,grid_files)[1:9], load.maxflow.event)
-names(g2g_event_grids) <- storm_names
+grid_files <- lapply(paths, list.files, include.dirs = TRUE)
+grid_file_paths <- Map(function(path, file){
+    file.path(path, file)
+}, paths, grid_files)
+
+
+g2g_event_grids <- lapply(grid_file_paths, lapply, load.maxflow.event)
+g2g_event_grids <- lapply(g2g_event_grids, function(x) {names(x) <- storm_names
+return(x)})
+# g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+# obs_ts <- g2g_output_2018_2022$obs
+# events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+# g2g_event_grids <- Map(load.maxflow.event(file.path(paths[[1]],grid_files)[1:9]), grid_files[[1]])
+
+
 
 ```
 
@@ -97,6 +114,20 @@ qt_rasts <- qt_rasts[intersect(qt_order, names(qt_rasts))]
 
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700)
+
+catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
+
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+wales_poly <- st_union(wales)
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
 
 ```
 
@@ -136,9 +167,125 @@ wales_catchment_sf <- st_read("../data/wales_catchments_sf")
 
 ```
 
+```{r}
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
+
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+## change dates so it fits with gridded dates
+ciara_pstart <-  as.POSIXct(paste(2020, 2, 1, sep="-"), tz="GMT")
+ciara_pend <-  as.POSIXct(paste(2020, 2, 16, sep="-"), tz="GMT")
+dennis_pstart <-  as.POSIXct(paste(2020, 2, 15, sep="-"), tz="GMT")
+dennis_pend <-  as.POSIXct(paste(2020, 2, 22, sep="-"), tz="GMT")
+unnamed_2_pstart <-  as.POSIXct(paste(2020, 2, 21, sep="-"), tz="GMT")
+unnamed_2_pend <-  as.POSIXct(paste(2020, 2, 28, sep="-"), tz="GMT")
+jorge_pstart <-  as.POSIXct(paste(2020, 2, 27, sep="-"), tz="GMT")
+jorge_pend <-  as.POSIXct(paste(2020, 3, 9, sep="-"), tz="GMT")
+
+events_list <- lapply(events_list, function(config){
+
+  config$Ciara$obs <- config$Ciara$obs[DATE_TIME >= ciara_pstart &
+                     DATE_TIME <= ciara_pend, ]
+
+  config$Dennis$obs <- config$Dennis$obs[DATE_TIME >= dennis_pstart &
+                      DATE_TIME <= dennis_pend, ]
+
+  config$Unnamed_storm_2$obs <- config$Unnamed_storm_2$obs[DATE_TIME >= unnamed_2_pstart &
+                         DATE_TIME <= unnamed_2_pend, ]
+
+  config$Jorge$obs <- config$Jorge$obs[DATE_TIME >= jorge_pstart &
+                     DATE_TIME <= jorge_pend, ]
+
+  config
+})
+
+
+qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
+qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+names(qt_grid_list) <- qt_val ## name by qt
+qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
+
+sim_max_discharge_qt <- list()
+for (t_val in qt_val) {
+  sim_max_discharge_qt[[t_val]] <- lapply(events_list$sim, function(event_mod_obs) {
+    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+  })
+}
+
+sufi_max_discharge_qt <- list()
+for (t_val in qt_val) {
+  sufi_max_discharge_qt[[t_val]] <- lapply(events_list$sufi, function(event_mod_obs) {
+    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+  })
+}
+
+max_discharge_qt <- list(sim = sim_max_discharge_qt, sufi = sufi_max_discharge_qt)
+
+qt_exceeded <- lapply(max_discharge_qt,lapply, lapply, thresh.exceed)
+
+
+qt_exceeded_dt_list <- lapply(qt_exceeded, lapply, function(qt){
+    dt_exceed <- data.table(
+    unsplit_name     = names(unlist(qt)),
+    Exceeded = unlist(qt)
+    )
+    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
+    dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
+    dt_exceed[, unsplit_name := NULL]
+    setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
+    return(dt_exceed)
+})
+
+merged_dat <- lapply(qt_exceeded_dt_list, lapply, merge, qt_dt, by = "G2G.ID")
+q_levels <- c("q1", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+
+highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
+    exceed_dt <- rbindlist(model_config, idcol = "Threshold")
+
+    exceed_dt[, Threshold := gsub("qmed", "q1", Threshold)] ## sub qmed for q1 so it can be ordered correctly in next step
+
+    exceed_dt[, Threshold := factor(Threshold, levels = q_levels, ordered = TRUE)]
+
+    exceed_dt[, keep_site_storm := any(Exceeded == TRUE, na.rm = TRUE), by = .(Storm, G2G.ID)] ## identify sites exceeded in any of 3 data (obs, sim sufi)
+    filtered_dt <- exceed_dt[keep_site_storm == TRUE] ## filter these sites
+
+    highest_qt_exceeded <- filtered_dt[, .(
+      Threshold = if (any(Exceeded == TRUE, na.rm = TRUE)) {
+        as.character(max(Threshold[Exceeded == TRUE], na.rm = TRUE))
+      } else {
+        "None"
+      },
+      Site         = first(Site),
+      G2G_Easting  = first(G2G_Easting),
+      G2G_Northing = first(G2G_Northing)
+    ), by = .(Storm, G2G.ID, Data_Type)]
+
+    highest_qt_exceeded[, Threshold := gsub("^q1$", "qmed", Threshold)]
+
+    final_levels <- c("None", "qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
+    highest_qt_exceeded[, Threshold := factor(Threshold, levels = final_levels, ordered = TRUE)]
+
+    # Optional: Sort it cleanly for viewing
+    setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
+    return(highest_qt_exceeded)
+})
+
+q_levels <- c("qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000") ## reassign q_levels back to normal
+
+
+```
+
+
+
+
 ## Plot
 
 ```{r}
+#| fig-width: 20
+#| fig-height: 7
 
 catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
 ## filter by wales
@@ -157,32 +304,19 @@ wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 
 g2g_data <- wales_cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
 
-event_exceedance_grids <- lapply(g2g_event_grids, build.exceedance.grid, qt_rasts)
+event_exceedance_grids <- lapply(g2g_event_grids, lapply, build.exceedance.grid, qt_rasts)
 
 for (storm in storm_names){
-    p <- plot.gridded.exceedance.map(event_exceedance_grids[[storm]], wales, event_label = storm, g2g.sites = NULL, catchments_sf = wales_catchment_sf)
-    print(p)
+    p <- plot.gridded.exceedance.map(event_exceedance_grids[["sim"]][[storm]], wales, event_label = storm, g2g.sites = NULL, catchments_sf = wales_catchment_sf)  + labs(title = paste(" Sim QT gridded exceedance -", storm), x = NULL, y = NULL)
+
+    q <- plot.gridded.exceedance.map(event_exceedance_grids[["sufi"]][[storm]], wales, event_label = storm, g2g.sites = NULL, catchments_sf = wales_catchment_sf)+ labs(title = paste(" Sufi QT gridded exceedance -", storm), x = NULL, y = NULL)
+    r <- plot.wales.exceed(highest_qt_exceeded_list$sufi, wales, storm.name = storm, "obs")
+
+    print(p + q + r)
 }
 
 
 
-
-
-
-# # -- Composite "worst case, any event" map --
-# composite_max <- build_composite_max(maxflow_rasts)
-# composite_exceedance <- build_exceedance_grid(composite_max, qt_rasts)
-# plot_exceedance_map(composite_exceedance, wales, event_label = "Composite (all 9 events)")
-
-# # -- Extract values at Aim 3 "ungauged test" site coordinates --
-# ## sites_df needs: site_id, easting, northing (BNG, EPSG:27700)
-# aim3_sites <- data.frame(
-#   site_id  = c("SITE_A", "SITE_B"),
-#   easting  = c(260000, 275500),
-#   northing = c(210000, 198200)
-# )
-# aim3_extracted <- extract_at_sites(composite_max, aim3_sites)
-# print(aim3_extracted)
 
 
 ```
@@ -193,7 +327,9 @@ for (storm in storm_names){
 ### Elwy at Ciara
 
 ```{r}
-ciara_exceedance_grid <- event_exceedance_grids$Ciara
+ciara_exceedance_grid_sufi <- event_exceedance_grids$sufi$Ciara
+ciara_exceedance_grid_sim <- event_exceedance_grids$sim$Ciara
+
 catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
 elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
 elwy_catchment_sf <- catchments[catchments$g2g_id == elwy_catchment_id,]
@@ -201,13 +337,20 @@ elwy_catchment_sf <- catchments[catchments$g2g_id == elwy_catchment_id,]
 
 # target_catchment <- st_transform(target_catchment, st_crs(g2g_rast))
 
-rast_cropped <- terra::crop(ciara_exceedance_grid, elwy_catchment_sf)
+rast_cropped_sufi <- terra::crop(ciara_exceedance_grid_sufi, elwy_catchment_sf)
+rast_cropped_sim <- terra::crop(ciara_exceedance_grid_sim, elwy_catchment_sf)
 
 
-rast_cutout <- terra::mask(rast_cropped, elwy_catchment_sf)
-df_cutout <- as.data.frame(rast_cutout, xy = TRUE)
+rast_cutout_sim <- terra::mask(rast_cropped_sim, elwy_catchment_sf)
+rast_cutout_sufi <- terra::mask(rast_cropped_sufi, elwy_catchment_sf)
 
-names(df_cutout)[3] <- "value" 
+df_cutout_sim <- as.data.frame(rast_cutout_sim, xy = TRUE)
+df_cutout_sufi <- as.data.frame(rast_cutout_sufi, xy = TRUE)
+
+
+names(df_cutout_sim)[3] <- "value" 
+names(df_cutout_sufi)[3] <- "value" 
+
 
 threshold_colours <- c(
     "None"  = "white",
@@ -221,14 +364,34 @@ threshold_colours <- c(
     "q1000" = "#4d0000"
   )
 
+  
 ggplot() +
-  geom_raster(data = df_cutout, aes(x = x, y = y, fill = value)) +
+  geom_raster(data = df_cutout_sim, aes(x = x, y = y, fill = value)) +
   
   geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
   
 
   coord_sf(datum = st_crs(27700)) +
-  labs(title = "G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
+  labs(title = "sim G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
+  theme_minimal() +
+  scale_fill_manual(
+      values = threshold_colours, 
+      breaks = names(threshold_colours), # Removed the trailing comma here
+      name = "QT Threshold exceeded", 
+      drop = FALSE, 
+      na.value = NA
+    ) 
+
+
+
+ggplot() +
+  geom_raster(data = df_cutout_sufi, aes(x = x, y = y, fill = value)) +
+  
+  geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
+  
+
+  coord_sf(datum = st_crs(27700)) +
+  labs(title = "SUFI G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
   theme_minimal() +
   scale_fill_manual(
       values = threshold_colours, 
