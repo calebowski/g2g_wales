@@ -174,6 +174,64 @@ plot.wales.nrw.thresh <- function(dt, wales, storm.name) {
 }
 
 
+plot.wales.nrw.thresh.tol <- function(dt, wales, storm.name) {
+  thresh_colours <- c(
+    "correct rejection" = NA,
+    "hit"   = "#148d16", 
+    "near miss"   = "#ee7d7d", 
+    "close false alarm"   = "#6776ce", 
+    "false alarm"   = "#0020d4", 
+    "miss"  = "#ff0000"
+  )
+
+  plot_dt <- dt[Storm %in% storm.name,]
+
+
+  p <- ggplot() +
+    # layer the wales map
+    geom_sf(data = wales, fill = "#f9f9f9", color = "#8c8c8c", size = 0.4) +
+    
+    # place g2g site points
+    geom_point(data = plot_dt, 
+               aes(x = G2G.Easting, y = G2G.Northing, fill = outcome),
+               size = 2.5, 
+               alpha = 0.9,
+               stroke = 0.6,
+               shape = 21,
+               color = "black") +
+        
+    ## scale color=ur
+    scale_fill_manual(
+    values = thresh_colours,
+    na.value = NA
+    ) +
+    
+    ## Force 1:1 scale geometry so Wales doesn't get stretched
+    coord_sf(datum = 27700) + 
+    
+    theme_minimal() +
+    theme(
+      panel.grid.major = element_line(color = "#e0e0e0", size = 0.2),
+      panel.grid.minor = element_blank(),
+      plot.title = element_text(face = "bold", size = 14),
+      legend.position = "right",
+      axis.title.x = element_blank(),
+      axis.title.y = element_blank(),
+      axis.text.x = element_blank(),
+      axis.text.y = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.ticks.y = element_blank()
+      ) +
+    labs(
+      # title = paste(storm.name, "QT Threshold Exceedance Map"),
+      title = paste("NRW Threshold Skill score map"),
+      x = "Easting (m)",
+      y = "Northing (m)",
+      color = "Skill score"
+    )
+}
+
+
 
 plot.wales.pme <- function(dt, wales, storm.name) {
 
