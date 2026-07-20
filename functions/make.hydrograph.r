@@ -131,30 +131,29 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
   }
 
   if (!is.null(rain.data)){
-    ymax <- max_discharge * 1.3
     rain.data <- rain.data[[storm.name]][, .(DATE_TIME, precip = get(g2g.id))]
     if (!is.null(pstart)) rain.data <- rain.data[rain.data$DATE_TIME >= pstart, ]
     if (!is.null(pend))   rain.data <- rain.data[rain.data$DATE_TIME <= pend, ]
-    rain.data[, rain_ymin := ymax - precip * rain_scale]
-    rain.data[, rain_ymax := ymax]
+    # rain.data[, rain_ymin := ymax - precip * rain_scale]
+    # rain.data[, rain_ymax := ymax]
   } 
 
 
   # if (!is.null(river_name))
 
-  p <- ggplot() +
-  geom_rect(
-    data = rain.data,
-    aes(
-      xmin = DATE_TIME - 1800,
-      xmax = DATE_TIME + 1800,
-      ymin = rain_ymin,
-      ymax = rain_ymax
-    ),
-    fill = "#4C78A8",
-    alpha = 0.35,
-    inherit.aes = FALSE
-  ) + 
+  p_flow <- ggplot() +
+  # geom_rect(
+  #   data = rain.data,
+  #   aes(
+  #     xmin = DATE_TIME - 1800,
+  #     xmax = DATE_TIME + 1800,
+  #     ymin = rain_ymin,
+  #     ymax = rain_ymax
+  #   ),
+  #   fill = "#4C78A8",
+  #   alpha = 0.35,
+  #   inherit.aes = FALSE
+  # ) + 
   geom_line(data = event.data$obs, 
             aes(x = DATE_TIME, y = get(paste0(g2g.id, "_Obs")), color = "Observed"), linewidth = 0.8) +
 
@@ -181,14 +180,14 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
   
   geom_hline(data = qt_df, aes(yintercept =qt_df$value), inherit.aes = FALSE,color = "black", linetype = "dashed", linewidth = 0.4) +
   
-  scale_y_continuous(
-    limits = c(0, ymax),
-    name = expression(Flow ~ (m^3 ~ s^-1)),
-    sec.axis = sec_axis(
-      trans = ~ (ymax - .) / rain_scale,
-      name = "Rainfall (mm)"
-    )
-  ) +
+  # scale_y_continuous(
+  #   limits = c(0, ymax),
+  #   name = expression(Flow ~ (m^3 ~ s^-1)),
+  #   sec.axis = sec_axis(
+  #     # trans = ~ (ymax - .) / rain_scale,
+  #     name = "Rainfall (mm)"
+  #   )
+  # ) +
     
   geom_text(
       data = qt_df,
@@ -223,8 +222,18 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
         plot.title = element_text(size = 16, face = "bold"),
         plot.subtitle = element_text(size = 15)
   )
-  p <- p + list(...)
-  return(p)
+  p_flow <- p_flow + list(...)
+
+  if (!is.null(rain.data)){
+    p_rain  <- ggplot(rain.data, aes(DATE_TIME, precip)) +
+      geom_col(fill = "#4C78A8") +
+        scale_y_reverse() +
+        labs(y = "Rainfall (mm/hr)") +
+        theme_bw()
+  
+    p_flow <- p_rain / p_flow
+  }
+  return(p_flow)
 }
 
 

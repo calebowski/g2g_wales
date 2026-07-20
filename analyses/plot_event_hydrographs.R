@@ -13,6 +13,7 @@ library(ggplot2)
 library(lubridate)
 library(gtools)
 library(sf)
+library(patchwork)
 
 
 g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
@@ -70,14 +71,6 @@ for (storm in names(events_list[[1]])){
   rf_event_dat[[storm]] <- rf_dat[date >= event_period[1] & date <= event_period[2],  c("date",ids_to_keep), with = FALSE]
   setnames(rf_event_dat[[storm]], "date", "DATE_TIME") ## set it to same name as g2g output
 }
-
-
-
-
-
-
-
-
 
 
 for (event in names(events_list_pivoted)) {
