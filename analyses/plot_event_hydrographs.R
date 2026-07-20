@@ -1,4 +1,4 @@
-plot_directory <- "../data/figures/hydrographs"
+plot_directory <- "../data/figures/wales_events_2018_2021_hydrographs_7_day"
 if (!dir.exists(plot_directory)){
   dir.create(plot_directory, recursive = TRUE)
 }
@@ -40,7 +40,7 @@ wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 
 
 ## make list for each event, with sublist for mod & obs
-events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE, time.span = lubridate::days(7))
 
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
@@ -110,3 +110,71 @@ for (event in names(events_list_pivoted)) {
   }
 }  
 
+
+######################################################################################################################################################################
+#
+#                                                                     36 HOURS TIME SPAN
+#
+######################################################################################################################################################################
+
+plot_directory <- "../data/figures/wales_events_2018_2021_hydrographs_36_hours"
+if (!dir.exists(plot_directory)){
+  dir.create(plot_directory, recursive = TRUE)
+}
+
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE, time.span = lubridate::hours(36))
+
+events_list_pivoted <- list()
+for (event in names(events_list[[1]])) {
+  sim <- events_list$sim[[event]]$mod
+  sufi <- events_list$sufi[[event]]$mod
+  obs <- events_list$sufi[[event]]$obs
+  events_list_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
+}
+
+
+rf_event_dat <- list()
+for (storm in names(events_list[[1]])){
+  event_period <- c(min(events_list$sufi[[storm]]$mod$DATE_TIME), max(events_list$sufi[[storm]]$mod$DATE_TIME))
+  ids_to_keep <- gsub("_Mod", "", names(events_list$sim[[storm]]$mod))[-1] ## remove DATE_TIME column
+  rf_event_dat[[storm]] <- rf_dat[date >= event_period[1] & date <= event_period[2],  c("date",ids_to_keep), with = FALSE]
+  setnames(rf_event_dat[[storm]], "date", "DATE_TIME") ## set it to same name as g2g output
+}
+
+
+for (event in names(events_list_pivoted)) {
+
+  cat("Beginning event plotting:", event,"...\n")
+  event_data <- events_list_pivoted[[event]]
+  g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
+  ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids][
+    order(as.numeric(CATCHMENTSIZE)),
+    .SD,
+    by = River.Name
+  ]
+  g2g_ids <- ord_catchment_size_river$G2G.ID
+
+  for (g2g_id in g2g_ids) {
+    tryCatch({
+      event_plot <- make.hydrograph.sim.sufi(
+        event.data = event_data,
+        rain.data = rf_event_dat,
+        g2g.id = g2g_id,
+        storm.name = event,
+        cdata = wales_cdata,
+        qt.data = qt_dt,
+        sufi =sufi_data
+      )
+      ggsave(
+        filename = file.path(plot_directory, paste0(event, "__", g2g_id, ".png")),
+        plot = event_plot,
+        width = 8,
+        height = 6,
+        units = "in",
+        dpi = 300
+      )
+    }, error = function(e) {
+      cat("Plot failed for storm:", event, "G2G.id:", g2g_id)
+    })
+  }
+}  

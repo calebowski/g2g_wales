@@ -215,7 +215,11 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
   # Themes and Legend placement
   theme_bw() +
   scale_x_datetime(date_labels = "%d-%m-%Y") +
-  theme(legend.position = c(0.8, 0.8),
+  theme(legend.position = c(0.35, 0.8),
+        # legend.justification = c(1, 0.5),
+        legend.background = element_rect(fill = "transparent", colour = NA),
+        legend.box.background = element_rect(fill = "transparent", colour = NA),
+        legend.key = element_rect(fill = "transparent", colour = NA),
         legend.title    = element_blank(),
         legend.text = element_text(size = 10),
         # aspect.ratio = 0.8,
@@ -228,8 +232,10 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
     p_rain  <- ggplot(rain.data, aes(DATE_TIME, precip)) +
       geom_col(fill = "#4C78A8") +
         scale_y_reverse() +
-        labs(y = "Rainfall (mm/hr)") +
-        theme_bw()
+        labs(y = "Rainfall (mm)",
+         x = "") +
+        theme_bw() +
+        scale_x_datetime(date_labels = "%d-%m-%Y")
   
     p_flow <- p_rain / p_flow
   }

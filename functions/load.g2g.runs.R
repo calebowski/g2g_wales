@@ -44,9 +44,9 @@ return(tdata)
 
 # events should be a dataframe of events (see data)
 # notable sites will be a column in events
-make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites = FALSE) {
+make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites = FALSE, time.span = lubridate::days(7)) {
 
-  make.events.helper <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites) {
+  make.events.helper <- function(mod, obs, events,cdata, region.classifier, exclude.non.notable.sites, time.span) {
 
     events_list <- list()
     events_with_notable_sites <- c()
@@ -72,8 +72,8 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
 
         start_date <- as.POSIXct(paste(event$Year, event$Month, event$Start_day, sep="-"), tz="GMT")
         end_date <- as.POSIXct(paste(event$Year, event$Month, event$End_day, sep="-"), tz="GMT")
-        pstart <- start_date - lubridate::days(7) ## period starts 7 days before 
-        pend <- end_date + lubridate::days(7) ## period ends 7 days after
+        pstart <- start_date - time.span ## period starts 7 days before 
+        pend <- end_date + time.span ## period ends 7 days after
 
         ## get geographic regions of event, using region classifer list
         if ((!exclude.non.notable.sites || is.na(event[, Notable_catchment])) && !is.null(region.classifier)) {
@@ -120,11 +120,11 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
   }
 
   if (inherits(mod, "list") && all(names(mod) %in% c("sufi", "sim"))) {
-    sim_events <- make.events.helper(mod = mod$sim, obs, events,cdata, region.classifier, exclude.non.notable.sites)
-    sufi_events <- make.events.helper(mod = mod$sufi, obs, events,cdata, region.classifier, exclude.non.notable.sites)
+    sim_events <- make.events.helper(mod = mod$sim, obs, events,cdata, region.classifier, exclude.non.notable.sites, time.span)
+    sufi_events <- make.events.helper(mod = mod$sufi, obs, events,cdata, region.classifier, exclude.non.notable.sites, time.span)
     events_list_master <- list(sim = sim_events, sufi = sufi_events)
   } else {
-    events_list_master <- make.events.helper(mod = mod, obs, events,cdata, region.classifier, exclude.non.notable.sites)
+    events_list_master <- make.events.helper(mod = mod, obs, events,cdata, region.classifier, exclude.non.notable.sites, time.span)
   }
   return(events_list_master)
 }
