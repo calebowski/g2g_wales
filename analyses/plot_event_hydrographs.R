@@ -3,10 +3,11 @@ if (!dir.exists(plot_directory)){
   dir.create(plot_directory, recursive = TRUE)
 }
 source("../functions/load.g2g.runs.R")
-source("../functions/extract.g2g.qt.R")
-source("../functions/qt.exceed.R")
+source("../functions/extract.g2g.grid.R")
+# source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 source("../functions/obs.mod.stats.R")
+source("../functions/make.hydrograph.R")
 library(data.table)
 library(ggplot2)
 library(lubridate)
@@ -60,6 +61,24 @@ for (event in names(events_list[[1]])) {
 }
 
 
+rf_dat <- fread("../data/catchment_average_rg_precip.csv")
+
+rf_event_dat <- list()
+for (storm in names(events_list[[1]])){
+  event_period <- c(min(events_list$sufi[[storm]]$mod$DATE_TIME), max(events_list$sufi[[storm]]$mod$DATE_TIME))
+  ids_to_keep <- gsub("_Mod", "", names(events_list$sim[[storm]]$mod))[-1] ## remove DATE_TIME column
+  rf_event_dat[[storm]] <- rf_dat[date >= event_period[1] & date <= event_period[2],  c("date",ids_to_keep), with = FALSE]
+  setnames(rf_event_dat[[storm]], "date", "DATE_TIME") ## set it to same name as g2g output
+}
+
+
+
+
+
+
+
+
+
 
 for (event in names(events_list_pivoted)) {
 
@@ -77,6 +96,7 @@ for (event in names(events_list_pivoted)) {
     tryCatch({
       event_plot <- make.hydrograph.sim.sufi(
         event.data = event_data,
+        rain.data = rf_event_dat,
         g2g.id = g2g_id,
         storm.name = event,
         cdata = wales_cdata,
