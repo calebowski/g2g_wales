@@ -73,6 +73,26 @@ for (storm in names(events_list[[1]])){
 }
 
 
+
+accum.rainfall <- function(rg, cdata) {
+  g2g_ids <- names(rg)[-1]
+  catchment_sizes <- cdata[match(g2g_ids, G2G.ID)]$CATCHMENTSIZE
+  # rainfall_m <- apply(rg[,-1], 2,function(x)  x/ 1000)
+  # catchment_sizes_m <- vapply(catchment_sizes, 1, function(x) x * )
+  rainfall_volume_m3 <- sweep(rg[,-1], 2, catchment_sizes * 1000, "*") ## converts to m^3
+  # rainfall_volume_m <- apply(rainfall_volume, 2, function(x) x * 1000)
+  cum_rainfall_volume_m3 <- as.data.table(apply(rainfall_volume_m3,2, cumsum))
+  cum_rainfall_volume_m3 <- cbind(rg[,1], cum_rainfall_volume_m3) ## add date_time back
+  return(cum_rainfall_volume_m3)
+}
+
+
+accum_rainfall_event <- lapply(rf_event_dat, accum.rainfall, cdata = wales_cdata)
+
+
+
+
+
 for (event in names(events_list_pivoted)) {
 
   cat("Beginning event plotting:", event,"...\n")
@@ -94,7 +114,8 @@ for (event in names(events_list_pivoted)) {
         storm.name = event,
         cdata = wales_cdata,
         qt.data = qt_dt,
-        sufi =sufi_data
+        sufi =sufi_data,
+        accum.rg = accum_rainfall_event
       )
       ggsave(
         filename = file.path(plot_directory, paste0(event, "__", g2g_id, ".png")),
@@ -141,6 +162,7 @@ for (storm in names(events_list[[1]])){
   setnames(rf_event_dat[[storm]], "date", "DATE_TIME") ## set it to same name as g2g output
 }
 
+accum_rainfall_event <- lapply(rf_event_dat, accum.rainfall, cdata = wales_cdata)
 
 for (event in names(events_list_pivoted)) {
 
@@ -163,7 +185,8 @@ for (event in names(events_list_pivoted)) {
         storm.name = event,
         cdata = wales_cdata,
         qt.data = qt_dt,
-        sufi =sufi_data
+        sufi =sufi_data,
+        accum.rg = accum_rainfall_event
       )
       ggsave(
         filename = file.path(plot_directory, paste0(event, "__", g2g_id, ".png")),

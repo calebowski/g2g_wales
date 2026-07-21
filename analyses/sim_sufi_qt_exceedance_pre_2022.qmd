@@ -760,7 +760,7 @@ ggplot(pme_clean, aes(x = rating_group, y = pme, fill = rating_group)) +
 
 ```{r}
 
-wales_dem <- terra::rast("../data/topography/wales_dem_50m.tif")
+wales_dem <- terra::rast("../data/rasters/wales_dem_50m.tif")
 
 slope_rast <- terra::terrain(wales_dem, v = "slope", unit = "degrees")
 tri_rast   <- terra::terrain(wales_dem, v = "TRI")
@@ -838,43 +838,6 @@ wales_cdata <- merge(wales_cdata, gauge_dist_dt, by = "G2G.ID", all.x = TRUE)
 
 ```
 
-
-## Model test
-
-
-- Response variable is pme
-- Predictors:
-  - catchment size
-  - rain gauge distance
-  - TRI
-
-
-```{r}
-# merged_pme_predictor <- lapply(pme_dt_list, function(x){
-#   merge()
-# })
-
-
-# pme_dist_tri$sufi[,
-#     .(Mean_TRI_z := scale(Mean_TRI),
-#     mean_dist_z := scale(mean_dist),
-#     log_catchment_z := scale(log(CATCHMENTSIZE)))
-#   ]
-# library(lme4)
-
-# sim_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
-#                  (1 | G2G.ID) + (1 | Storm),
-#                data = pme_dist_tri$sim)
-
-# summary(sim_model)
-
-# sufi_model <- lmer(log_abs_pme ~ Mean_TRI + Mean_Gauge_Dist_Km + log(CATCHMENTSIZE) +
-#                  (1 | G2G.ID) + (1 | Storm),
-#                data = pme_dist_tri$sufi)
-# summary(sufi_model)
-
-
-```
 
 
 ## NRW Threshold exceedance
@@ -1058,6 +1021,32 @@ rf_event_sum_dt <- rbindlist(rf_event_sum_dt_list, idcol = "Storm")
 
 ```
 
+## incorporating urban extent
+
+- weight urban as 1, suburban as 0.5.
+
+
+```{r}
+suburban_lcm <- rast("../data/rasters/suburban_LCM2019.asc")
+urban_lcm <- rast("../data/rasters/urban_LCM2019.asc")
+
+wales_catchments <- st_read("../data/wales_catchments_sf")
+catchments_v <- terra::vect(wales_catchments)
+
+suburb_extracted <- terra::extract(suburban_lcm, catchments_v, fun = mean, na.rm = TRUE)
+urb_extracted <- terra::extract(urban_lcm, catchments_v, fun = mean, na.rm = TRUE)
+
+urb_sub_combined <- data.table(G2G.ID = catchments_v$g2g_id, urban.suburban.cover = (urb_extracted[[2]]* 1) + (suburb_extracted[[2]]* 0.5) )
+
+
+urban_dt <- data.table(
+  G2G.ID     = catchments$g2g_id, 
+  Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
+  Mean_TRI   = tri_extracted[[2]],
+  sd_TRI = tri_range_extracted[[2]]
+)
+
+```
 
 
 #### With tolerance
@@ -1156,33 +1145,6 @@ summary(detection_lenient)
 #   labs(title = "Site hit rate vs number of storms observed")
 
 ```
-
-
-## Incorporating rainfall data
-
-- Total event rainfall depth (sum over the event window)
-- Peak rainfall intensity (max value, or max over a rolling window e.g. 1hr/6hr — intensity matters more than total depth for flashy response)
-- Time-to-peak rainfall (for comparing against time-to-peak flow — see timing below)
-- Rainfall duration above some threshold
-
-```{r}
-rf_dat <- fread("../data/catchment_average_rg_precip.csv")
-
-rf_event_dat <- list()
-for (storm in storm_names){
-  event_period <- c(min(events_list$sim[[storm]]$mod$DATE_TIME), max(events_list$sim[[storm]]$mod$DATE_TIME))
-  ids_to_keep <- gsub("_Mod", "", names(events_list$sim[[storm]]$mod))[-1] ## remove DATE_TIME column
-  rf_event_dat[[storm]] <- rf_dat[date >= event_period[1] & date <= event_period[2],  c("date",ids_to_keep), with = FALSE]
-  setnames(rf_event_dat[[storm]], "date", "DATE_TIME") ## set it to same name as g2g output
-}
-
-rf_event_sum <- lapply(rf_event_dat, function(x) apply(x[, !"DATE_TIME"], 2, sum))
-
-
-
-```
-
-
 
 
 

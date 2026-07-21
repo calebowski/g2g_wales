@@ -82,7 +82,7 @@ make.hydrograph.simple <-function(event.data, g2g.id, storm.name, cdata, qt.data
 }
 
 
-make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart = NULL, pend = NULL, storm.name, cdata, qt.data, sufi, ...){
+make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NULL, g2g.id, pstart = NULL, pend = NULL, storm.name, cdata, qt.data, sufi, ...){
 
   match_call <- match.call()
 
@@ -136,6 +136,12 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
     if (!is.null(pend))   rain.data <- rain.data[rain.data$DATE_TIME <= pend, ]
     # rain.data[, rain_ymin := ymax - precip * rain_scale]
     # rain.data[, rain_ymax := ymax]
+  } 
+
+  if (!is.null(accum.rg)){
+    accum.rg <- accum.rg[[storm.name]][, .(DATE_TIME, precip = get(g2g.id))]
+    if (!is.null(pstart)) accum.rg <- accum.rg[accum.rg$DATE_TIME >= pstart, ]
+    if (!is.null(pend))   accum.rg <- accum.rg[accum.rg$DATE_TIME <= pend, ]
   } 
 
 
@@ -229,17 +235,43 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, g2g.id, pstart
   p_flow <- p_flow + list(...)
 
   if (!is.null(rain.data)){
-    p_rain  <- ggplot(rain.data, aes(DATE_TIME, precip)) +
-      geom_col(fill = "#4C78A8") +
-        scale_y_reverse() +
-        labs(y = "Rainfall (mm)",
-         x = "") +
-        theme_bw() +
-        scale_x_datetime(date_labels = "%d-%m-%Y")
-  
+          
+      max_rain <- max(rain.data$precip, na.rm = TRUE)
+      max_vol  <- max(accum.rg$precip, na.rm = TRUE)
+
+      scale_fac <- max_rain / max_vol
+
+   
+      p_rain <- ggplot() +
+          geom_col(
+            data = rain.data,
+            aes(DATE_TIME, precip),
+            fill = "#4C78A8"
+          ) +
+          geom_line(
+            data = accum.rg,
+            aes(DATE_TIME, precip * scale_fac),
+            colour = "red",
+            linewidth = 0.8
+          ) +
+          scale_y_continuous(
+            name = "Rainfall (mm/15 min)",
+            sec.axis = sec_axis(
+              ~ . / scale_fac,
+              name = expression("Cumulative rainfall volume ("*m^3*")")
+            )
+          ) +
+          labs(x = "") +
+          theme_bw() +
+          scale_x_datetime(date_labels = "%d-%m-%Y")
+
+        
     p_flow <- p_rain / p_flow
   }
   return(p_flow)
 }
 
+
+## convert flows to m3 convert to 15 and then by 60
+## flip it around.
 
