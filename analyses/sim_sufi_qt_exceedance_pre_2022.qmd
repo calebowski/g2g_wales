@@ -847,146 +847,20 @@ wales_cdata <- merge(wales_cdata, gauge_dist_dt, by = "G2G.ID", all.x = TRUE)
 
 max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 
-# nrw_threshold <- fread("../data/nrw_alert_threshold_convert_flow.csv")
-# nrw_threshold_v <- nrw_threshold$flow_thresholds_alert
-# names(nrw_threshold_v) <- nrw_threshold$G2G.ID
-# max_discharge_sim_sufi_filt <- lapply(max_discharge_sim_sufi, lapply, function(x){
-#   g2g_sites <- names(nrw_threshold_v)
-#   mod <- x$mod
-#   obs <- x$obs
-#   mod_sites <- gsub("_Mod", "", names(mod))
-#   obs_sites <- gsub("_Obs", "", names(obs))
-#   filt <- mod_sites %in% g2g_sites
-#   mod_filt <- mod[filt]
-#   obs_filt <- obs[filt] ## filter so theyre matching
-#   return(list(obs = obs_filt, mod = mod_filt))
-# })
-
-# nrw_thresh_exceed <- lapply(max_discharge_sim_sufi_filt, lapply, thresh.exceed, threshold = nrw_threshold_v)
-
-# nrw_thresh_exceed_dt_list <- lapply(nrw_thresh_exceed, function(storm){
-#     dt_exceed <- data.table(
-#     unsplit_name     = names(unlist(storm)),
-#     Exceeded = unlist(storm)
-#     )
-#     dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
-#     dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
-#     dt_exceed[, unsplit_name := NULL]
-#     setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
-#     return(dt_exceed)
-# })
-
-# nrw_thresh_exceed_cat <- lapply(nrw_thresh_exceed_dt_list, function(dt) {
-#   wide <- dcast(
-#     dt,
-#     Storm + G2G.ID  ~ Data_Type,
-#     value.var = "Exceeded", ## pivot to long with mod and obs filled by exceeded
-#     fill = FALSE
-#   )
-
-#   wide[, exceed_class := fifelse(obs & mod, "both",
-#     fifelse(obs & !mod, "obs only",
-#       fifelse(!obs & mod, "mod only", "neither")
-#     )
-#   )]
-
-#   wide <- na.omit(wide) ## remove NA cols (from obs failing)
-#   # wide
-
-#   added_cdata <- merge(wide, wales_cdata, by = "G2G.ID")
-# })
-
-# pod_table <- nrw_thresh_exceed_cat$sufi[
-#   exceed_class %in% c("both", "obs only", "mod only"),
-
-#   .(
-#     hits   = sum(exceed_class == "both"),
-#     misses = sum(exceed_class == "obs only"),
-#     false_alarms = sum(exceed_class == "mod only")
-#   ),
-
-#   by = G2G.ID
-# ]
-
-# pod_table[, POD := hits / (hits + misses)]
-# pod_table[, FAR := false_alarms / (hits + false_alarms)]
-
-
-# pod_table <- merge(
-#   pod_table,
-#   wales_cdata,
-#   by = "G2G.ID"
-# )
-
-# setorder(pod_table, POD)
-
-# # fwrite(
-# #   pod_table,
-# #   "../data/nrw_thresh_exceed_pod_by_g2g_site.csv"
-# # )
-
-# storm_names <- unique(nrw_thresh_exceed_cat$sim$Storm)
-
-# comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
-#   p_sim  <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sim,  wales, storm.name = storm_name) +
-#     labs(subtitle = "SIM")
-
-#   p_sufi <- plot.wales.nrw.thresh(nrw_thresh_exceed_cat$sufi, wales, storm.name = storm_name) +
-#     labs(subtitle = "SUFI")
-
-#   p_sim + p_sufi +
-#     plot_annotation(title = paste("Storm:", storm_name))
-# }), storm_names)
-
-# comparison_plots
-
-
-
-# hits_dt <- lapply(nrw_thresh_exceed_cat, function(dt){
-#   dt <- dt[obs == TRUE]
-#   dt[, hit := as.integer(mod)]
-# })
-
-# far_dt <- lapply(nrw_thresh_exceed_cat, function(dt){
-#   dt <- dt[obs == FALSE]
-#   dt[, FA := as.integer(mod)]
-# })
-
-# ## need to do a podfar
-# detection_model_sufi <- glmer(
-#   hit ~  log(CATCHMENTSIZE) + mean_dist_km + sd_TRI +
-#     (1 | G2G.ID) + (1 | Storm),
-#   data = hits_dt$sufi,
-#   family = binomial(link = "logit"),
-#   control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
-# )
-# summary(detection_model_sufi)
-
-
-
-
-# site_hit_rates <- as.data.table(model.frame(detection_model_sufi))[
-#   , .(hit_rate = mean(hit), n = .N), by = G2G.ID]
-# table(site_hit_rates$hit_rate %in% c(0,1))
-# site_hit_rates[, extreme := hit_rate %in% c(0,1)]
-
-# # does perfect separation cluster among low-n sites?
-# site_hit_rates[, .(mean_n = mean(n), min_n = min(n), max_n = max(n)), by = extreme]
-
-# # visualise directly
-# ggplot(site_hit_rates, aes(x = n, y = hit_rate, color = extreme)) +
-#   geom_jitter(width = 0.1, height = 0.02) +
-#   labs(title = "Site hit rate vs number of storms observed")
-
-# # FAR_model_sufi <- glmer(
-# #   FA ~  log(CATCHMENTSIZE) + mean_dist_km+sd_TRI +
-# #     (1 | G2G.ID) + (1 | Storm),
-# #   data = far_dt$sufi,
-# #   family = binomial(link = "logit"),
-# #   control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
-# # )
-# # summary(FAR_model_sufi)
-
+nrw_threshold <- fread("../data/nrw_alert_threshold_convert_flow.csv")
+nrw_threshold_v <- nrw_threshold$flow_thresholds_alert
+names(nrw_threshold_v) <- nrw_threshold$G2G.ID
+max_discharge_sim_sufi_filt <- lapply(max_discharge_sim_sufi, lapply, function(x){
+  g2g_sites <- names(nrw_threshold_v)
+  mod <- x$mod
+  obs <- x$obs
+  mod_sites <- gsub("_Mod", "", names(mod))
+  obs_sites <- gsub("_Obs", "", names(obs))
+  filt <- mod_sites %in% g2g_sites
+  mod_filt <- mod[filt]
+  obs_filt <- obs[filt] ## filter so theyre matching
+  return(list(obs = obs_filt, mod = mod_filt))
+})
 
 ```
 
@@ -1003,6 +877,8 @@ max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 ```{r}
 rf_dat <- fread("../data/catchment_average_rg_precip.csv")
 
+
+storm_names <- names(events_list[[1]])
 rf_event_dat <- list()
 for (storm in storm_names){
   event_period <- c(min(events_list$sim[[storm]]$mod$DATE_TIME), max(events_list$sim[[storm]]$mod$DATE_TIME))
@@ -1015,8 +891,6 @@ rf_event_sum <- lapply(rf_event_dat, function(x) apply(x[, !"DATE_TIME"], 2, sum
 rf_event_sum_dt_list <- lapply(rf_event_sum, function(x) data.table(G2G.ID = names(x), precip = as.numeric(x)))
 
 rf_event_sum_dt <- rbindlist(rf_event_sum_dt_list, idcol = "Storm")
-
-
 
 
 ```
@@ -1037,14 +911,14 @@ suburb_extracted <- terra::extract(suburban_lcm, catchments_v, fun = mean, na.rm
 urb_extracted <- terra::extract(urban_lcm, catchments_v, fun = mean, na.rm = TRUE)
 
 urb_sub_combined <- data.table(G2G.ID = catchments_v$g2g_id, urban.suburban.cover = (urb_extracted[[2]]* 1) + (suburb_extracted[[2]]* 0.5) )
+wales_cdata <- merge(wales_cdata, urb_sub_combined, by = "G2G.ID")
 
-
-urban_dt <- data.table(
-  G2G.ID     = catchments$g2g_id, 
-  Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
-  Mean_TRI   = tri_extracted[[2]],
-  sd_TRI = tri_range_extracted[[2]]
-)
+# urban_dt <- data.table(
+#   G2G.ID     = catchments$g2g_id, 
+#   Mean_Slope = slope_extracted[[2]],  # The second column holds the actual raster values
+#   Mean_TRI   = tri_extracted[[2]],
+#   sd_TRI = tri_range_extracted[[2]]
+# )
 
 ```
 
@@ -1052,6 +926,7 @@ urban_dt <- data.table(
 #### With tolerance
 
 ```{r}
+
 max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 
 nrw_thresh_exceed <- lapply(max_discharge_sim_sufi_filt, lapply, pod.far.tol, threshold = nrw_threshold_v)
@@ -1100,12 +975,17 @@ detection_data <- lapply(detection_data, function(dt){
 })
 
 
+detection_data <- lapply(detection_data, function(x){
+  x[, urban_sc := scale(urban.suburban.cover)]
+  x[, precip_sc := scale(precip)]
+  x[, catchmentsize_sc := scale(CATCHMENTSIZE)]
+  x[,terrian_sc := scale(sd_TRI)]
+})
 
-
-detection_strict <- glmer(hit_strict ~ log(CATCHMENTSIZE) + sqrt(precip) + sd_TRI + (1 | G2G.ID) + (1 | Storm),
+detection_strict <- glmer(hit_strict ~ precip_sc + catchmentsize_sc +  urban_sc + terrian_sc +(1 | G2G.ID) + (1 | Storm),
                        data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
-detection_lenient <- glmer(hit_lenient ~ log(CATCHMENTSIZE) + sqrt(precip) + sd_TRI + (1 | G2G.ID) + (1 | Storm),
+detection_lenient <- glmer(hit_lenient ~ precip_sc + catchmentsize_sc +  urban_sc  +terrian_sc+(1 | G2G.ID) + (1 | Storm),
                         data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
 exp(fixef(detection_strict)); exp(fixef(detection_lenient))
@@ -1114,6 +994,20 @@ summary(detection_strict)
 
 summary(detection_lenient)
 
+detection_interaction <- glmer(hit_strict ~ precip_sc * urban_sc+ catchmentsize_sc + terrian_sc +(1 | G2G.ID) + (1 | Storm),
+                       data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+
+anova(detection_strict, detection_interaction)
+```
+
+Detection probability increased significantly with precipitation, catchment size, and urban/suburban cover. Inclusion of a precipitation × urbanisation interaction did not improve model performance (LRT: χ² = 0.56, df = 1, p = 0.45; ΔAIC = +1.43), suggesting that the influence of precipitation on detection probability was not dependent on urbanisation.
+
+
+
+
+
+```{r}
 # confidence_data <- lapply(nrw_thresh_exceed_dt, function(dt){
 #   dt[outcome %in% c("correct rejection", "close false alarm", "false alarm")]
 # })
@@ -1146,6 +1040,87 @@ summary(detection_lenient)
 
 ```
 
+
+# QMED Threshold modelling
+
+## extract 
+
+
+```{r}
+
+max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
+qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+names(qt_grid_list) <- qt_val ## name by qt
+qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
+
+qmed <-qt_dt[, .(G2G.ID, qmed)]$qmed
+names(qmed) <- qt_dt$G2G.ID
+qmed_pod_far_tol <- lapply(max_discharge_sim_sufi, lapply, pod.far.tol, threshold = qmed)
+
+
+qmed_pod_far_tol <- lapply(qmed_pod_far_tol, lapply, merge, y = wales_cdata, by = "G2G.ID")
+qmed_pod_far_tol_dt <- lapply(qmed_pod_far_tol, rbindlist, idcol = "Storm")
+qmed_pod_far_tol_dt_rg <- lapply(qmed_pod_far_tol_dt, merge, rf_event_sum_dt, by = c("G2G.ID", "Storm")) ## add rain gauge data
+
+
+storm_names <- unique(qmed_pod_far_tol_dt$sim$Storm)
+
+comparison_plots <- setNames(lapply(storm_names, function(storm_name) {
+  p_sim  <- plot.wales.nrw.thresh.tol(qmed_pod_far_tol_dt$sim,  wales, storm.name = storm_name) +
+    labs(subtitle = "SIM")
+
+  p_sufi <- plot.wales.nrw.thresh.tol(qmed_pod_far_tol_dt$sufi, wales, storm.name = storm_name) +
+    labs(subtitle = "SUFI")
+
+  p_sim + p_sufi +
+    plot_annotation(title = paste("Storm:", storm_name))
+}), storm_names)
+comparison_plots
+
+```
+
+## Model QMED detection
+
+```{r}
+detection_data <- lapply(qmed_pod_far_tol_dt_rg, function(dt){
+  dt[outcome %in% c("hit", "near miss", "miss")]
+})
+
+
+
+detection_data <- lapply(detection_data, function(dt){
+  dt[, `:=`(
+  hit_strict  = as.integer(outcome == "hit"),                    # near miss counts as a miss
+  hit_lenient = as.integer(outcome %in% c("hit", "near miss"))   # near miss counts as a hit
+)]
+})
+
+
+detection_data <- lapply(detection_data, function(x){
+  x[, urban_sc := scale(urban.suburban.cover)]
+  x[, precip_sc := scale(precip)]
+  x[, catchmentsize_sc := scale(CATCHMENTSIZE)]
+  x[,terrian_sc := scale(sd_TRI)]
+})
+
+detection_strict <- glmer(hit_strict ~ precip_sc + catchmentsize_sc +  urban_sc  +(1 | G2G.ID) + (1 | Storm),
+                       data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+detection_lenient <- glmer(hit_lenient ~ precip_sc + catchmentsize_sc +  urban_sc  +(1 | G2G.ID) + (1 | Storm),
+                        data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+summary(detection_strict)
+summary(detection_lenient)
+
+
+detection_interaction <- glmer(hit_strict ~ precip_sc * urban_sc+ catchmentsize_sc + terrian_sc +(1 | G2G.ID) + (1 | Storm),
+                       data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
+anova(detection_strict, detection_interaction)
+
+```
 
 
 
