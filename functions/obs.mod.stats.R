@@ -49,6 +49,24 @@ extract.peak.discharge <- function(event, qt = NULL, T) {
 }
 
 
+extract.peak.discharge.timing <- function(event) {
+  mod <- event$mod
+  obs <- event$obs
+  max_mod_time <- c()
+  for (i in colnames(mod)[2:ncol(mod)]) { ## skip the date
+  idx <- which.max(mod[[i]])
+  max_mod_time[i] <- as.character(mod$DATE_TIME[idx])
+  }
+  max_obs_time <- c()
+  for (i in colnames(obs)[2:ncol(obs)]) { ## skip the date
+    idx <- which.max(obs[[i]])
+    max_obs_time[i] <- as.character(obs$DATE_TIME[idx])
+  }
+  return(list(mod = max_mod_time, obs = max_obs_time))
+} ## needs work on this
+
+
+
 thresh.exceed <- function(max_discharge, threshold = NULL) {
     # if (!is.null(threshold) %% !inherits(threshold, "numeric"))
     mod <- max_discharge$mod

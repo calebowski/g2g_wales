@@ -875,6 +875,7 @@ max_discharge_sim_sufi_filt <- lapply(max_discharge_sim_sufi, lapply, function(x
 - Rainfall duration above some threshold
 
 ```{r}
+
 rf_dat <- fread("../data/catchment_average_rg_precip.csv")
 
 
@@ -901,6 +902,7 @@ rf_event_sum_dt <- rbindlist(rf_event_sum_dt_list, idcol = "Storm")
 
 
 ```{r}
+
 suburban_lcm <- rast("../data/rasters/suburban_LCM2019.asc")
 urban_lcm <- rast("../data/rasters/urban_LCM2019.asc")
 
@@ -927,7 +929,7 @@ wales_cdata <- merge(wales_cdata, urb_sub_combined, by = "G2G.ID")
 
 ```{r}
 
-max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+# max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 
 nrw_thresh_exceed <- lapply(max_discharge_sim_sufi_filt, lapply, pod.far.tol, threshold = nrw_threshold_v)
 nrw_thresh_exceed <- lapply(nrw_thresh_exceed, lapply, merge, y = wales_cdata, by = "G2G.ID")
@@ -997,46 +999,103 @@ summary(detection_lenient)
 detection_interaction <- glmer(hit_strict ~ precip_sc * urban_sc+ catchmentsize_sc + terrian_sc +(1 | G2G.ID) + (1 | Storm),
                        data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
+summary(detection_interaction)
 
-anova(detection_strict, detection_interaction)
+# anova(detection_strict, detection_interaction)
 ```
 
 Detection probability increased significantly with precipitation, catchment size, and urban/suburban cover. Inclusion of a precipitation × urbanisation interaction did not improve model performance (LRT: χ² = 0.56, df = 1, p = 0.45; ΔAIC = +1.43), suggesting that the influence of precipitation on detection probability was not dependent on urbanisation.
 
 
+## plots of detection vs predictors
+
+```{r echo = FALSE}
+
+library(ggplot2)
+library(data.table)
 
 
+# plot_dt[, log_catchment := log(CATCHMENTSIZE)]
+
+p <- ggplot(nrw_thresh_exceed_dt_rg$sim, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+  geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+  labs(
+    x = "Catchment size km^2",
+    y = "Detection category",
+    title = "Detection categories by catchment size (SIM)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+q <- ggplot(nrw_thresh_exceed_dt_rg$sufi, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+  geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+  labs(
+    x = "Catchment size km^2",
+    y = "Detection category",
+    title = "Detection categories by catchment size (SUFI)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+p + q
+p <- ggplot(nrw_thresh_exceed_dt_rg$sim, aes(x = precip, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by precipitiation (Sim)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+q <- ggplot(nrw_thresh_exceed_dt_rg$sufi, aes(x = precip, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by precipitiation (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+p + q
+
+p <- ggplot(nrw_thresh_exceed_dt_rg$sim, aes(x = urban.suburban.cover, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "Urban/suburban land coverage",
+  y = "Detection category",
+  title = "Detection categories by urban/suburban cover (Sim)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+q <- ggplot(nrw_thresh_exceed_dt_rg$sufi, aes(x = urban.suburban.cover, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "Urban/suburban land coverage",
+  y = "Detection category",
+  title = "Detection categories by urban/suburban cover (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+p+q
+
+```
+
+
+# Peak timing threshold
 
 ```{r}
-# confidence_data <- lapply(nrw_thresh_exceed_dt, function(dt){
-#   dt[outcome %in% c("correct rejection", "close false alarm", "false alarm")]
-# })
-
-# confidence_data <- lapply(confidence_data, function(dt){
-#   dt[, `:=`(
-#   conf_strict  = as.integer(outcome == "correct rejection"),                    # near miss counts as a miss
-#   conf_lenient = as.integer(outcome %in% c("correct rejection", "close false alarm"))   # near miss counts as a hit
-# )]
-# })
-# confidence_strict <- glmer(conf_strict ~ log(CATCHMENTSIZE) + (1 | G2G.ID) + (1 | Storm),
-#                        data = confidence_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
-
-# confidence_lenient <- glmer(conf_lenient ~ log(CATCHMENTSIZE) + (1 | G2G.ID) + (1 | Storm),
-#                         data = confidence_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
 
-# site_hit_rates <- as.data.table(model.frame(detection_model_sufi))[
-#   , .(hit_rate = mean(hit), n = .N), by = G2G.ID]
-# table(site_hit_rates$hit_rate %in% c(0,1))
-# site_hit_rates[, extreme := hit_rate %in% c(0,1)]
 
-# # does perfect separation cluster among low-n sites?
-# site_hit_rates[, .(mean_n = mean(n), min_n = min(n), max_n = max(n)), by = extreme]
-
-# # visualise directly
-# ggplot(site_hit_rates, aes(x = n, y = hit_rate, color = extreme)) +
-#   geom_jitter(width = 0.1, height = 0.02) +
-#   labs(title = "Site hit rate vs number of storms observed")
 
 ```
 
@@ -1118,10 +1177,89 @@ summary(detection_lenient)
 detection_interaction <- glmer(hit_strict ~ precip_sc * urban_sc+ catchmentsize_sc + terrian_sc +(1 | G2G.ID) + (1 | Storm),
                        data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
 
-anova(detection_strict, detection_interaction)
+summary(detection_interaction)
+
+# anova(detection_strict, detection_interaction)
 
 ```
 
+
+## Plots qmed with predicors
+
+```{r}
+
+
+p <- ggplot(qmed_pod_far_tol_dt_rg$sim, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+  geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+  labs(
+    x = "Catchment size km^2",
+    y = "Detection category",
+    title = "Detection categories by catchment size (SIM)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+  geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+  labs(
+    x = "Catchment size km^2",
+    y = "Detection category",
+    title = "Detection categories by catchment size (SUFI)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+
+p + q
+p <- ggplot(qmed_pod_far_tol_dt_rg$sim, aes(x = precip, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by precipitiation (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = precip, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by precipitiation (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+p + q
+
+p <- ggplot(qmed_pod_far_tol_dt_rg$sim, aes(x = urban.suburban.cover, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by urban/suburban cover (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = urban.suburban.cover, y = outcome, color = outcome)) +
+geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
+labs(
+  x = "summed average gauge interpolated precipitiation",
+  y = "Detection category",
+  title = "Detection categories by urban/suburban cover (SUFI)"
+) +
+theme_minimal() +
+theme(legend.position = "none")
+
+
+p+q
+
+```
 
 
 # things to do 14/07

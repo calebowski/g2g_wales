@@ -96,7 +96,7 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
   }
 
   if ((!is.null(pstart) || !is.null(pend)) && (!inherits(pend, "POSIXct") || !inherits(pstart, "POSIXct"))){
-    stop("pstart and pend must be of class `POSIXct`")
+    stop("pstart and pend must be of class `POSIXct`\n")
   }
 
 
