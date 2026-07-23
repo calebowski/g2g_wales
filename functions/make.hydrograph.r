@@ -99,7 +99,7 @@ accum.river.vol <- function(event){
   river_vol_m3 <- lapply(event, function(x){
     sweep(x[,-1], 2, 15 * 60, "*" )
   })
-  cum_river_volume_m3 <- lapply(vol_m3, function(x){
+  cum_river_volume_m3 <- lapply(river_vol_m3, function(x){
     as.data.table(
           lapply(as.data.table(x), function(y) {
             cs <- cumsum(replace(y, is.na(y), 0))
