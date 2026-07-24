@@ -186,8 +186,15 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
   max_flow <- max(c(event.data$obs[[paste0(g2g.id, "_Obs")]], event.data$sim[[paste0(g2g.id, "_Mod")]], event.data$sufi[[paste0(g2g.id, "_Mod")]]), na.rm = TRUE)
   max_vol  <- max(c(accum.rv_obs$vol, accum.rv_sim$vol, accum.rv_sufi$vol))
 
-  scale_fac <- max_flow / max_vol
 
+  scale_fac_flow <- max_flow / max_vol
+  # cat("\n")
+  # cat("Site:", g2g.id, "\n")
+  # cat("max_flow =", max_flow, "\n")
+  # cat("max_vol_obs =", max(accum.rv_obs$vol, na.rm = TRUE), "\n")
+  # cat("max_vol_sim =", max(accum.rv_sim$vol, na.rm = TRUE), "\n")
+  # cat("max_vol_sufi =", max(accum.rv_sufi$vol, na.rm = TRUE), "\n")
+  # cat("scale_fac =", scale_fac, "\n")
  
   # if (!is.null(river_name))
 
@@ -222,7 +229,7 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
     x = min(event.data$obs$DATE_TIME, na.rm = TRUE),
     y = qmed, 
     label = "qmed",
-    vjust = -0.8,
+    vjust = 1.3,
     hjust = 0,
     color = "darkgreen",
     fontface = "bold"
@@ -281,11 +288,11 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
   if (!is.null(accum.rv)){
     p_flow <- p_flow + 
     geom_line(data = accum.rv_obs, 
-    aes(DATE_TIME, vol * scale_fac, colour = "Observed"),  linetype = "dashed") +
+    aes(DATE_TIME, vol * scale_fac_flow, colour = "Observed"),  linetype = "dashed") +
 
-    geom_line(data = accum.rv_sim, aes(DATE_TIME, vol * scale_fac, colour = "Sim"),  linetype = "dashed") +
+    geom_line(data = accum.rv_sim, aes(DATE_TIME, vol * scale_fac_flow, colour = "Sim"),  linetype = "dashed") +
 
-    geom_line(data = accum.rv_sufi, aes(DATE_TIME, vol * scale_fac, colour = "Sufi") ,  linetype = "dashed") +
+    geom_line(data = accum.rv_sufi, aes(DATE_TIME, vol * scale_fac_flow, colour = "Sufi") ,  linetype = "dashed") +
 
     # scale_color_manual(values = c(
     # "Sufi" = "#016fd6",
@@ -295,20 +302,21 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
     scale_y_continuous(
             name = expression(Flow ~ (m^3 ~ s^-1)),
             sec.axis = sec_axis(
-              ~ . / scale_fac,
+              ~ . / scale_fac_flow,
               name = expression("Cumulative river volume ("*m^3*")")
             )
           ) 
   }
 
   p_flow <- p_flow + list(...)
+  # ggsave("test.png",  p_flow,  width = 8,  height = 4)
 
   if (!is.null(rain.data)){
           
       max_rain <- max(rain.data$precip, na.rm = TRUE)
       max_vol  <- max(accum.rg$precip, na.rm = TRUE)
 
-      scale_fac <- max_rain / max_vol
+      scale_fac_rain <- max_rain / max_vol
 
    
       p_rain <- ggplot() +
@@ -319,14 +327,14 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
           ) +
           geom_line(
             data = accum.rg,
-            aes(DATE_TIME, precip * scale_fac),
+            aes(DATE_TIME, precip * scale_fac_rain),
             colour = "red",
             linewidth = 0.8
           ) +
           scale_y_continuous(
             name = "Rainfall (mm/15 min)",
             sec.axis = sec_axis(
-              ~ . / scale_fac,
+              ~ . / scale_fac_rain,
               name = expression("Cumulative rainfall volume ("*m^3*")")
             )
           ) +
@@ -335,12 +343,19 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
           scale_x_datetime(date_labels = "%d-%m-%Y")
 
         
-    p_flow <- p_rain / p_flow
+    p_flow <- wrap_plots(
+      p_rain,
+      p_flow,
+      ncol = 1
+    )
   }
+
+
   return(p_flow)
 }
 
 
 ## convert flows to m3 convert to 15 and then by 60
 ## flip it around.
+
 

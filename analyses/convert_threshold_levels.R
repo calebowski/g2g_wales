@@ -31,14 +31,55 @@ curve_list <- lapply(curves, function(curve) {
 # Combine all stations into one master lookup table
 rating_table <- rbindlist(curve_list)
 level_thresh <- fread("../data/nrw_level_threshold.csv")
-level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
+# level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
+# level_thresh_alert <- level_thresh[ threshold.type == "Flood Alert", .( threshold.level = min(threshold.level)),  by = .(G2G.ID)]
 
-level_thresh_alert[, join_level := threshold.level] ## make a duplicate column for joining and one spare for putting it in
 
-# Perform a non-equi join to match the stage to the correct equation bracket
-flow_thresholds_alert <- rating_table[level_thresh_alert, 
-                          on = .(G2G.ID, minStage <= join_level, maxStage > join_level), 
-                          nomatch = NULL]
+thresholds_wide <- dcast(
+  level_thresh[
+    , .(threshold.level = min(threshold.level, na.rm = TRUE)),
+    by = .(G2G.ID, threshold.type)
+  ],
+  G2G.ID ~ threshold.type,
+  value.var = "threshold.level"
+)
+thresholds_wide[,Information:= NULL]
+
+
+
+
+
+# level_thresh_alert[, join_level := threshold.level] ## make a duplicate column for joining and one spare for putting it in
+
+
+flow_thresh <- data.table(G2G.ID = thresholds_wide$G2G.ID)
+for (col in names(thresholds_wide)[-1]){
+  alert_col <- thresholds_wide[,list(G2G.ID,get(col))]
+  # col_dt <- data.table()
+  id_dt <- data.table()
+  for (id in thresholds_wide$G2G.ID) {
+    level_thresh <- as.numeric(alert_col[G2G.ID == id, 2])
+    rating_table_row <- rating_table[
+      G2G.ID == id &
+      minStage <= level_thresh &
+      maxStage > level_thresh
+    ]
+    flow <- rating_table_row$cr * (level_thresh - rating_table_row$alpha)^rating_table_row$beta
+    to_write <- data.table(G2G.ID = id)
+    to_write[,(col) := flow] ## writes flood alert/warning
+    id_dt <- rbind(id_dt, to_write)
+  }
+  flow_thresh <- merge(flow_thresh, id_dt, by = "G2G.ID")
+}
+
+
+
+
+
+# # Perform a non-equi join to match the stage to the correct equation bracket
+# flow_thresholds_alert <- rating_table[level_thresh_alert,
+#                           on = .(G2G.ID, minStage <= join_level, maxStage > join_level),
+#                           nomatch = NULL]
 
 # Calculate the discharge (handling any potential negative bases before the power operation)
 flow_thresholds_alert[, flow_thresholds_alert := cr * (threshold.level - alpha)^beta]

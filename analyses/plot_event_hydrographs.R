@@ -153,7 +153,7 @@ for (storm in names(events_list[[1]])){
 
 accum_rainfall_event <- lapply(rf_event_dat, accum.rainfall, cdata = wales_cdata)
 
-accum_flow_event <- lapply(rf_event_dat, accum.rainfall, cdata = wales_cdata)
+accum_river_vol_event <- lapply(events_list_pivoted, accum.river.vol) ## check warning on this
 
 
 for (event in names(events_list_pivoted)) {
@@ -178,7 +178,8 @@ for (event in names(events_list_pivoted)) {
         cdata = wales_cdata,
         qt.data = qt_dt,
         sufi =sufi_data,
-        accum.rg = accum_rainfall_event
+        accum.rg = accum_rainfall_event,
+        accum.rv = accum_river_vol_event
       )
       ggsave(
         filename = file.path(plot_directory, paste0(event, "__", g2g_id, ".png")),
