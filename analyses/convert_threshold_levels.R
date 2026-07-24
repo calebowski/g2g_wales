@@ -55,7 +55,6 @@ thresholds_wide[,Information:= NULL]
 flow_thresh <- data.table(G2G.ID = thresholds_wide$G2G.ID)
 for (col in names(thresholds_wide)[-1]){
   alert_col <- thresholds_wide[,list(G2G.ID,get(col))]
-  # col_dt <- data.table()
   id_dt <- data.table()
   for (id in thresholds_wide$G2G.ID) {
     level_thresh <- as.numeric(alert_col[G2G.ID == id, 2])
@@ -73,6 +72,9 @@ for (col in names(thresholds_wide)[-1]){
 }
 
 
+fwrite(flow_thresh, "../data/nrw_alert_warning_flow_thresh.csv")
+
+
 
 
 
@@ -81,9 +83,9 @@ for (col in names(thresholds_wide)[-1]){
 #                           on = .(G2G.ID, minStage <= join_level, maxStage > join_level),
 #                           nomatch = NULL]
 
-# Calculate the discharge (handling any potential negative bases before the power operation)
-flow_thresholds_alert[, flow_thresholds_alert := cr * (threshold.level - alpha)^beta]
+# # Calculate the discharge (handling any potential negative bases before the power operation)
+# flow_thresholds_alert[, flow_thresholds_alert := cr * (threshold.level - alpha)^beta]
 
-# Clean up the output
-final_thresholds <- flow_thresholds_alert[, .(G2G.ID, threshold.level, flow_thresholds_alert)]
-fwrite(final_thresholds, "../data/nrw_alert_threshold_convert_flow.csv")
+# # Clean up the output
+# final_thresholds <- flow_thresholds_alert[, .(G2G.ID, threshold.level, flow_thresholds_alert)]
+# fwrite(final_thresholds, "../data/nrw_alert_threshold_convert_flow.csv")

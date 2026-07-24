@@ -120,7 +120,9 @@ fwrite(cleaned_new_g2g_sites,"../data/new_g2g_sites_g2g_coords.csv")
 
 cleaned_new_g2g_sites <- fread("../data/new_g2g_sites_g2g_coords.csv")
 
-# any(cleaned_new_g2g_sites$G2G.ID %in% original_ids)
+
+
+any(cleaned_new_g2g_sites$G2G.ID %in% original_ids)
 
 if (!dir.exists("../data/conf")){
     dir.create("../data/conf")

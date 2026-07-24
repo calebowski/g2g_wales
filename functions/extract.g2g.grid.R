@@ -142,7 +142,7 @@ ascii.to.rast <- function(g, crs = "EPSG:27700") {
 #
 
 load.maxflow.event <- function(file_path) {
-  g <- normalise.to.corner(read.ascii(file_path))
+  g <- normalise.to.corner(read.ascii(file_path)) ## load the maxflow grids by internally calling read.ascii
   ascii.to.rast(g)
 }
 
@@ -162,7 +162,6 @@ build.exceedance.grid <- function(maxflow_rast, qt_rasts_ordered) {
     category[exceeded] <- i
   }
 
-  # only fall back to "None" (0) for on-network cells that didn't exceed anything
   category[on_network & is.na(category)] <- 0L
 
   category <- mask(category, maxflow_rast)   # still respect the flow grid's own NODATA

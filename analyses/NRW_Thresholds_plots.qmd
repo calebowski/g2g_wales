@@ -1,0 +1,237 @@
+---
+title: "NRW Threshold plots for Storm events (Wales 2018-2021)"
+subtitle: "Sim & SUFI data"
+author: "Caleb Scutt"
+format:
+  # html:
+  #   page-layout: full
+  #   toc: true
+  #   code-fold: true
+  #   fig-width: 10
+  #   fig-height: 5
+  #   embed-resources: true
+  #   theme: flatly
+  typst:
+    toc: true
+    fig-width: 8
+    fig-height: 10
+    margin:
+      x: 1in
+      y: 1in
+    fontsize: 14pt
+    section-numbering: 1.1.1
+    keep-typ: false
+execute:
+  warning: false
+  message: false
+---
+
+```{r echo = FALSE}
+## load packages and functions
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(gtools)
+library(sf)
+library(grid)
+library(gridExtra)
+library(patchwork)
+library(gt)
+library(terra)
+library(lme4)
+source("../functions/load.g2g.runs.R")
+source("../functions/extract.g2g.grid.R")
+# source("../functions/qt.exceed.R")
+source("../functions/plot.wales.R")
+source("../functions/obs.mod.stats.R")
+```
+
+
+<!-- ## Read in data
+
+* `mod_ts` is the g2g modelled flow data at each g2g site
+* `obs_ts` is the observed flow data at each g2g site
+* `events` are the notable storm events in Wales (`events_pre_2022` are events we have data for)
+* `catchments` are the metadata for each catchment (region, area, river name, easting/northing, g2g.id). `wales_cdata` is this filtered by just Welsh catchments
+* The following sites are missing from g2g model output, but present in catchment data: 055025_TG_325_Mod, 57809_Mod 60005_Mod, 066004_TG_9512_Mod, 067005_TG_116_Mod, 067023_TG_117_Mod, 055025_TG_325_Mod, 60005_Mod. -->
+
+```{r, include = FALSE}
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
+## read in the events
+events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
+## read in the catchment metadata
+catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
+## filter by wales
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
+
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)
+wales_poly <- st_union(wales)
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
+
+
+```
+
+```{r message = FALSE, warning = FALSE, include = FALSE, echo = TRUE}
+
+events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+storm_dates <- setNames(
+  lapply(
+    seq_len(nrow(events_pre_2022)),
+    function(i) {
+      c(
+        start = as.Date(sprintf("%04d-%02d-%02d",
+                                events_pre_2022$Year[i],
+                                events_pre_2022$Month[i],
+                                events_pre_2022$Start_day[i])),
+        end   = as.Date(sprintf("%04d-%02d-%02d",
+                                events_pre_2022$Year[i],
+                                events_pre_2022$Month[i],
+                                events_pre_2022$End_day[i]))
+      )
+    }
+  ),
+  names(events_list[[1]])
+)
+
+```
+
+
+
+# NRW Threshold exceedance
+
+```{r echo = FALSE}
+
+
+max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+
+nrw_threshold <- fread("../data/nrw_alert_warning_flow_thresh.csv", fill =TRUE, sep=",")
+
+
+flood_alert <- setNames(
+  nrw_threshold[!is.na(`Flood Alert`), `Flood Alert`],
+  nrw_threshold[!is.na(`Flood Alert`), G2G.ID]
+)
+
+flood_warning <- setNames(
+  nrw_threshold[!is.na(`Flood Warning`), `Flood Warning`],
+  nrw_threshold[!is.na(`Flood Warning`), G2G.ID]
+)
+
+severe_flood_warning <- setNames(
+  nrw_threshold[!is.na(`Severe Flood Warning`), `Severe Flood Warning`],
+  nrw_threshold[!is.na(`Severe Flood Warning`), G2G.ID]
+)
+
+flood_thresh <- list(alert = flood_alert, warning=flood_warning, severe_warning = severe_flood_warning)
+
+
+max_discharge_sim_sufi_filt <- lapply(flood_thresh, function(level){
+  lapply(max_discharge_sim_sufi, lapply, function(x){
+    g2g_sites <- names(level)
+    mod <- x$mod
+    obs <- x$obs
+    mod_sites <- gsub("_Mod", "", names(mod))
+    obs_sites <- gsub("_Obs", "", names(obs))
+    filt <- mod_sites %in% g2g_sites
+    mod_filt <- mod[filt]
+    obs_filt <- obs[filt] ## filter so theyre matching
+    return(list(obs = obs_filt, mod = mod_filt))
+  })
+})
+
+
+
+max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+
+nrw_thresh_exceed <- Map(function(max_disch, thresh_type){
+  lapply(max_disch, lapply, pod.far.tol, threshold = thresh_type)
+}, max_discharge_sim_sufi_filt, flood_thresh)
+
+nrw_thresh_exceed <- lapply(nrw_thresh_exceed, lapply,lapply, merge, y = wales_cdata, by = "G2G.ID")
+nrw_thresh_exceed_dt <- lapply(nrw_thresh_exceed, lapply, rbindlist, idcol = "Storm")
+
+```
+
+
+## Flood alert Plots
+
+```{r echo = FALSE}
+
+storm_names <- unique(nrw_thresh_exceed_dt$alert$sim$Storm)
+
+alert_plots <- setNames(lapply(storm_names, function(storm_name) {
+  p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$alert$sim,  wales, storm.name = storm_name) +
+    labs(subtitle = "Flood Alert: SIM")
+
+  p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$alert$sufi, wales, storm.name = storm_name) +
+    labs(subtitle =  "Alert: SUFI")
+
+  (p_sim / p_sufi) +
+    plot_annotation(title = paste("Storm:", storm_name, storm_dates[[storm_name]]["start"], storm_dates[[storm_name]]["end"]))
+}), storm_names)
+
+for (p in alert_plots) {
+  print(p)
+  cat("\n\\pagebreak\n")
+}
+
+
+```
+
+## Flood warning Plots
+
+```{r echo = FALSE}
+
+warning_plots <- setNames(lapply(storm_names, function(storm_name) {
+  p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$warning$sim,  wales, storm.name = storm_name) +
+    labs(subtitle = "Flood Warning: SIM")
+
+  p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$warning$sufi, wales, storm.name = storm_name) +
+    labs(subtitle =  "Flood Warning: SUFI")
+
+  (p_sim / p_sufi) +
+    plot_annotation(title = paste("Storm:", storm_name, storm_dates[[storm_name]]["start"], storm_dates[[storm_name]]["end"]))
+}), storm_names)
+
+for (p in warning_plots) {
+  print(p)
+    cat("\n\\pagebreak\n")
+
+}
+
+```
+
+
+## Severe warning plots
+
+```{r echo = FALSE}
+
+severe_warning_plots <- setNames(lapply(storm_names, function(storm_name) {
+  p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$severe$sim,  wales, storm.name = storm_name) +
+    labs(subtitle = "Flood Severe Warning:SIM")
+
+  p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$severe$sufi, wales, storm.name = storm_name) +
+    labs(subtitle =  "Flood Severe WarningSUFI")
+
+  (p_sim / p_sufi) +
+    plot_annotation(title = paste("Storm:", storm_name, storm_dates[[storm_name]]["start"], storm_dates[[storm_name]]["end"]))
+}), storm_names)
+
+for (p in severe_warning_plots) {
+  print(p)
+    cat("\n\\pagebreak\n")
+
+}
+
+```

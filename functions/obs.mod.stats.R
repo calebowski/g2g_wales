@@ -63,7 +63,7 @@ extract.peak.discharge.timing <- function(event) {
     max_obs_time[i] <- as.character(obs$DATE_TIME[idx])
   }
   return(list(mod = max_mod_time, obs = max_obs_time))
-} ## needs work on this
+} ## needs work on this...
 
 
 
@@ -99,38 +99,47 @@ pod.far.tol <- function(max_discharge, threshold){
     g2g_ids <- names(threshold)
 
     pod_far_tol <- data.table()
-    for (id in g2g_ids){
+    for (id in g2g_ids) {
+
+      layer <- NULL
+
       thresh <- threshold[id]
       obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
       mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
-      tol_range <- thresh * c(0.8, 1.2) ## 20% either side
+
+      if (is.na(obs_val) || is.na(mod_val) || is.na(thresh)) {
+        next
+      }
+
       obs_exceed <- obs_val >= thresh
-      mod_exceed <- mod_val  >= thresh ## check if mod also exceeded thresh
-      if (isTRUE(obs_exceed) && isTRUE(mod_exceed)){ ## HIT
+      mod_exceed <- mod_val >= thresh
+
+      if (obs_exceed && mod_exceed) {
         layer <- data.table(G2G.ID = id, outcome = "hit")
-      }
-      if (isFALSE(obs_exceed) && isFALSE(mod_exceed)){ ## correct rejection
+
+      } else if (!obs_exceed && !mod_exceed) {
         layer <- data.table(G2G.ID = id, outcome = "correct rejection")
-      }
-      if (isFALSE(mod_exceed) && isTRUE(obs_exceed)) { ## if not, check if within 20%
-        mod_exceed_tol <- mod_val >= tol_range[1]## check if higher than 20% lower than thresh
-        if (isFALSE(mod_exceed_tol)){
-          layer <- data.table(G2G.ID= id, outcome = "miss")
-        } else {
+
+      } else if (!mod_exceed && obs_exceed) {
+        if (mod_val >= thresh * 0.8) {
           layer <- data.table(G2G.ID = id, outcome = "near miss")
-        }
-      }
-      if (isFALSE(obs_exceed) && isTRUE(mod_exceed)){
-        obs_exceed_tol <- obs_val >= tol_range[1] ## check if obs higher than 20% lower than thresh
-        if (isFALSE(obs_exceed_tol)){
-          layer <- data.table(G2G.ID = id, outcome = "false alarm")
         } else {
+          layer <- data.table(G2G.ID = id, outcome = "miss")
+        }
+
+      } else if (!obs_exceed && mod_exceed) {
+        if (obs_val >= thresh * 0.8) {
           layer <- data.table(G2G.ID = id, outcome = "close false alarm")
+        } else {
+          layer <- data.table(G2G.ID = id, outcome = "false alarm")
         }
       }
-      pod_far_tol <- rbind(layer, pod_far_tol)
-    }
-    return(pod_far_tol)
+
+      if (!is.null(layer)) {
+        pod_far_tol <- rbind(pod_far_tol, layer)
+      }
+      }
+        return(pod_far_tol)
 }
 
 
