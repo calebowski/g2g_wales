@@ -231,7 +231,83 @@ severe_warning_plots <- setNames(lapply(storm_names, function(storm_name) {
 for (p in severe_warning_plots) {
   print(p)
     cat("\n\\pagebreak\n")
-
 }
+
+```
+
+## heatmap
+
+```{r}
+
+# 0=None, 1=Alert, 2=Warning, 3=Severe
+
+obs_class <- function(outcome_alert, outcome_warning, outcome_severe) {
+
+  if (outcome_severe %in% c("hit", "miss", "near miss"))
+    return(3L)
+
+  if (outcome_warning %in% c("hit", "miss", "near miss"))
+    return(2L)
+
+  if (outcome_alert %in% c("hit", "miss", "near miss"))
+    return(1L)
+
+  0L
+}
+
+mod_class <- function(outcome_alert, outcome_warning, outcome_severe) {
+
+  if (outcome_severe %in% c("hit", "false alarm", "close false alarm"))
+    return(3L)
+
+  if (outcome_warning %in% c("hit", "false alarm", "close false alarm"))
+    return(2L)
+
+  if (outcome_alert %in% c("hit", "false alarm", "close false alarm"))
+    return(1L)
+
+  0L
+}
+
+
+library(data.table)
+
+alert <- nrw_thresh_exceed_dt$alert$sim[
+  , .(Storm, G2G.ID, alert_outcome = outcome)
+]
+
+warning <- nrw_thresh_exceed_dt$warning$sim[
+  , .(Storm, G2G.ID, warning_outcome = outcome)
+]
+
+severe <- nrw_thresh_exceed_dt$severe_warning$sim[
+  , .(Storm, G2G.ID, severe_outcome = outcome)
+]
+
+all_thresh <- Reduce(
+  function(x, y) merge(x, y, by = c("Storm", "G2G.ID"), all = TRUE),
+  list(alert, warning, severe)
+)
+
+
+all_thresh[
+  ,
+  obs_level := mapply(
+    obs_class,
+    alert_outcome,
+    warning_outcome,
+    severe_outcome
+  )
+]
+
+all_thresh[
+  ,
+  mod_level := mapply(
+    mod_class,
+    alert_outcome,
+    warning_outcome,
+    severe_outcome
+  )
+]
 
 ```

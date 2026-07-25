@@ -1,0 +1,58 @@
+---
+title: "QT Exceedannce plots  for Storm events (Wales 2018-2021)"
+subtitle: "Sim & SUFI data"
+author: "Caleb Scutt"
+format:
+  html:
+    page-layout: full
+    toc: true
+    code-fold: true
+    fig-width: 10
+    fig-height: 5
+    embed-resources: true
+    theme: flatly
+  typst:
+    toc: true
+    fig-width: 7
+    fig-height: 5
+    margin:
+      x: 1in
+      y: 1in
+    fontsize: 11pt
+    section-numbering: 1.1.1
+    keep-typ: false
+execute:
+  warning: false
+  message: false
+---
+
+## read in new run
+
+```{r}
+library(data.table)
+library(ggplot2)
+library(lubridate)
+library(gtools)
+library(sf)
+library(grid)
+library(gridExtra)
+library(patchwork)
+library(gt)
+library(terra)
+library(lme4)
+source("../functions/load.g2g.runs.R")
+source("../functions/extract.g2g.grid.R")
+# source("../functions/qt.exceed.R")
+source("../functions/plot.wales.R")
+source("../functions/obs.mod.stats.R")
+
+```
+
+
+
+```{r}
+dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
+
+
+
+```
