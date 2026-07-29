@@ -50,50 +50,170 @@ source("../functions/obs.mod.stats.R")
 
 
 ```{r}
+# g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= Inf)
+# g2g_new_sites_metadata[SITE == "", SITE := NA_character_]
+
+# sites_to_keep <- g2g_new_sites_metadata[!is.na(SITE)  & Flow_vs_level == "Flow",]$G2G.ID
+
+
+
+# mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
+
+# file <- list.files(mod_dir)
+# mod <- read.time.series(file, mod_dir, output = "model")
+# # obs <- read.time.series(file, dir, output = "observed")
+
+
+# obs_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/obs"
+# obs_dirs <- list.files(obs_dir, recursive = TRUE)
+# flow_files <- obs_dirs[ !grepl("G2G", obs_dirs)]
+# flow_files <- flow_files[ grepl("Obs", flow_files) | grepl("Rated", flow_files)]
+
+# years <- c("2018", "2019", "2020", "2021")
+# obs_list <- list()
+# for (year in years) {
+  
+#   year_files <- flow_files[dirname(flow_files) == year]
+  
+#   # 1. Read files and drop the last row
+#   ob_year <- lapply(
+#     file.path(obs_dir, year_files[grepl(year, year_files)]),
+#     function(x) {
+#       dt <- fread(x, fill = TRUE)
+#       dt[-nrow(dt), ]
+#     }
+#   )
+  
+#   # 2. Merge all files for the year
+#   obs_comb <- Reduce(
+#     function(x, y) merge(x, y, by = names(x)[1], all = TRUE),
+#     ob_year
+#   )
+  
+#   # 3. Extract names from Row 1, handle empty/NAs, and force them to be unique immediately
+#   new_names <- as.character(unlist(obs_comb[1]))
+#   new_names[is.na(new_names) | new_names == ""] <- "Unknown"
+#   setnames(obs_comb, make.unique(new_names))
+  
+#   # 4. Drop the first two rows (headers) and explicitly rename the date column
+#   obs_comb <- obs_comb[-c(1, 2), ]
+#   setnames(obs_comb, 1, "DATE_TIME")
+  
+#   # 5. Get the clean list of target columns (all except DATE_TIME)
+#   cols_to_change <- names(obs_comb)[-1]
+  
+#   # 6. Convert to numeric FIRST (This will spawn 'NAs introduced by coercion' warnings, which is expected/safe)
+#   obs_comb[, (cols_to_change) := lapply(.SD, as.numeric), .SDcols = cols_to_change]
+  
+#   # 7. Safely replace values <= -999 with NA using optimized data.table logic
+#   for (col in cols_to_change) {
+#     set(obs_comb, which(obs_comb[[col]] <= -999), col, NA)
+#   }
+  
+#   obs_list[[year]] <- obs_comb
+# }
+
+
+# obs <- rbindlist(obs_list)
+
+# sites_to_keep <- intersect(names(obs), sites_to_keep)
+
+# obs_filt <- obs[
+#   , c("DATE_TIME", sites_to_keep),
+#   with = FALSE
+# ] ## note that sites 055029A, 55015 are not found in obs
+
+# mod_filt <- mod[
+#   , c("DATE_TIME", paste0(sites_to_keep, "_Mod")),
+#   with = FALSE
+# ]
+
+
+# # common_ids <- intersect(
+# #   names(obs)[-1],
+# #   gsub("_Mod", "", names(mod))
+# # )
+
+# obs_filt <- obs_filt[-1:-2, ]
+# obs_filt[obs_filt <= - 999] <- NA
+# setnames(
+#   obs_filt,
+#   old = names(obs_filt)[-1],
+#   new = paste0(names(obs_filt)[-1], "_Obs")
+# )
+
+# new_sites <- list(obs = obs_filt, mod = mod_filt)
+
+g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= Inf)
+# g2g_new_sites_metadata[SITE == "", SITE := NA_character_]
+
+# sites_to_keep <- g2g_new_sites_metadata[!is.na(SITE)  & Flow_vs_level == "Flow",]$G2G.ID
+
+
+
 mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
 
 file <- list.files(mod_dir)
 mod <- read.time.series(file, mod_dir, output = "model")
-# obs <- read.time.series(file, dir, output = "observed")
+
+obs_dir <-  "../data/g2g_data/observed_new_sites"
+file <- "2018_2021_flows_new_sites.csv"
+obs <- read.time.series(file, obs_dir, output = "observed")
 
 
-obs_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/obs"
-obs_dirs <- list.files(obs_dir, recursive = TRUE)
-flow_files <- obs_dirs[ !grepl("G2G", obs_dirs)]
-flow_files <- flow_files[ grepl("Obs", flow_files) | grepl("Rated", flow_files)]
 
-years <- c("2018", "2019", "2020", "2021")
 
-obs <- list()
-for (year in years){
-  # obs_1 <- fread(file.path(obs_dir, flow_files[grepl(year, flow_files)][1]))
-  # obs_2 <- fread(file.path(obs_dir, flow_files[grepl(year, flow_files)][2]))
-  ob_year <- lapply( file.path(obs_dir, flow_files[grepl(year, flow_files)]), function(x) fread(x))
-  obs_comb <- cbindlist(ob_year)
-  setnames(obs_comb, as.character(unlist(obs_comb[1])))
-  obs_comb <- obs_comb[-1,]
-  obs_comb <- obs_comb[-1,]
-  setnames(obs_comb, 1, "DATE_TIME")
-  obs_comb[obs_comb < - 999] <- NA
-  obs[[year]] <- obs_comb
+```
+
+
+## make events
+
+```{r}
+events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
+events_list <- make.events.list(mod, obs, events_pre_2022, cdata = g2g_new_sites_metadata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
+qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
+qt_grid_list <- lapply(qt_grid_paths, read.ascii)
+names(qt_grid_list) <- qt_val ## name by qt
+qt_dt <- make.qt.csv(qt_grid_list, cdata = g2g_new_sites_metadata, write = FALSE)
+
+
+
+
+```
+
+
+## QT Exceedance
+
+```{r}
+
+max_discharge_qt <- list()
+for (t_val in qt_val) {
+  max_discharge_qt[[t_val]] <- lapply(events_list, function(event_mod_obs) {
+    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+  })
 }
 
-obs <- rbindlist(obs)
-
-names(year_data) <- years
 
 
+qt_exceeded <- lapply(max_discharge_qt,lapply, thresh.exceed)
 
 
-# nffs_csv <- fread("../data/cdata/ffc_locations_2022_wales_nffs_id.csv")
-# g2g_new_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv")
-# sum(nffs_csv$`NFFS NAME` %in% g2g_new_metadata$Location)
+qt_exceeded_dt_list <- lapply(qt_exceeded,  function(qt){
+    dt_exceed <- data.table(
+    unsplit_name     = names(unlist(qt)),
+    Exceeded = unlist(qt)
+    )
+    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
+    dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
+    dt_exceed[, unsplit_name := NULL]
+    setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
+    return(dt_exceed)
+})
 
-
-
-# no_name_sites <- g2g_new_metadata[c(grep("^NRW",g2g_new_metadata$G2G.ID)),]
-# no_name_sites$Location %in%nffs_csv$`NFFS NAME`
-
+merged_dat <- lapply(qt_exceeded_dt_list,  merge, qt_dt, by = "G2G.ID")
 
 
 ```

@@ -36,7 +36,7 @@ extract.peak.discharge <- function(event, qt = NULL, T) {
   }
   max_obs <- c()
   for (i in colnames(obs)[2:ncol(obs)]) { ## skip the date
-    max_obs[i] <-  max(obs[, ..i])
+    max_obs[i] <-  max(obs[, ..i], na.rm = TRUE)
   }
   #
   if(!is.null(qt)){ 
@@ -142,10 +142,6 @@ pod.far.tol <- function(max_discharge, threshold){
       thresh <- threshold[id]
       obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
       mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
-
-      obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
-      mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
-      thresh  <- threshold[id]
 
     if (length(obs_val) != 1 ||
         length(mod_val) != 1 ||

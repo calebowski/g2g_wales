@@ -116,6 +116,8 @@ cleaned_new_g2g_sites <- cleaned_new_g2g_sites[
 ]
 
 
+
+
 fwrite(cleaned_new_g2g_sites,"../data/new_g2g_sites_g2g_coords.csv")
 
 cleaned_new_g2g_sites <- fread("../data/new_g2g_sites_g2g_coords.csv")
