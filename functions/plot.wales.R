@@ -339,11 +339,19 @@ plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL, ...) {
   northing_easting <- cdata[G2G.ID %in% g2g.id,
                              .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
 
-  if (!is.null(fill.variable)) {
-    # stopifnot(nrow(fill.variable) == length(g2g.id))
-    northing_easting <- merge(northing_easting, fill.variable, by = "G2G.ID", all.x = TRUE)
-  }
-  fill.var <- colnames(fill.variable)[2]
+      if (!is.null(fill.variable)) {
+      northing_easting <- merge(
+        northing_easting,
+        fill.variable,
+        by = "G2G.ID",
+        all.x = TRUE
+      )
+
+      fill.var <- colnames(fill.variable)[2]
+
+      northing_easting <- northing_easting[!is.na(get(fill.var))]
+    }
+      
 
   p <- ggplot() +
     geom_sf(data = wales, fill = "#f9f9f9", color = "#8c8c8c", size = 0.4) +
@@ -357,20 +365,21 @@ plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL, ...) {
       ),
       alpha = 0.9,
       shape = 21,
-      color = "black"
+      color = "white"
     ) +
     coord_sf(datum = 27700) +
     theme_minimal() +
     labs(
       title = paste(g2g.id, "location in Wales"),
-      x = "Easting (m)",
-      y = "Northing (m)",
+      x = "",
+      y = "",
       size = "Catchment size",
       fill = if(!is.null(fill.variable)) colnames(fill.variable)[2] else NULL
     )
 
   if (!is.null(fill.variable)) {
-    p <- p + scale_fill_viridis_c()
+    p <- p + scale_fill_viridis_c() +
+    scale_size(range = c(5,20))
   }
 
   p

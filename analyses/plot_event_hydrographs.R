@@ -73,7 +73,7 @@ for (storm in names(events_list[[1]])){
 }
 
 
-
+## catchments that are upstream have sufi.
 
 accum_rainfall_event <- lapply(rf_event_dat, accum.rainfall, cdata = wales_cdata)
 

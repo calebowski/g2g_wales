@@ -169,6 +169,35 @@ build.exceedance.grid <- function(maxflow_rast, qt_rasts_ordered) {
   category
 }
 
+
+# build.flow.dir <- function(maxflow_rast, flow_dir) {
+
+
+#   flow_dir_ordered <- resample(flow_dir, maxflow_rast, method="near")
+#   # a cell only counts as "on network" if it has a threshold value in AT LEAST ONE qt grid
+#   # on_network <- !is.na(flow_dir_ordered)
+
+
+
+
+#   for (r in flow_dir_ordered[-1]) on_network <- on_network | !is.na(r)
+
+#   category <- rast(maxflow_rast)
+#   values(category) <- NA_integer_        # <- NA everywhere by default, not 0
+
+#   thresh_names <- names(flow_dir_ordered)
+#   for (i in seq_along(flow_dir_ordered)) {
+#     exceeded <- (maxflow_rast >= flow_dir_ordered[[i]])
+#     category[exceeded] <- i
+#   }
+
+#   category[on_network & is.na(category)] <- 0L
+
+#   category <- mask(category, maxflow_rast)   # still respect the flow grid's own NODATA
+#   levels(category) <- data.frame(id = 0:length(thresh_names), category = c("None", thresh_names))
+#   category
+# }
+
 extract.at.sites <- function(rast_obj, sites_df) {
   pts <- vect(sites_df, geom = c("easting", "northing"), crs = crs(rast_obj))
   vals <- extract(rast_obj, pts)

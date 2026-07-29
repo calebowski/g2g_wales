@@ -306,6 +306,8 @@ wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 g2g_data <- wales_cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
 
 event_exceedance_grids <- lapply(g2g_event_grids, lapply, build.exceedance.grid, qt_rasts)
+event_exceedance_grids <- lapply(g2g_event_grids, lapply, build.exceedance.grid, qt_rasts)
+
 
 for (storm in storm_names){
     p <- plot.gridded.exceedance.map(event_exceedance_grids[["sim"]][[storm]], wales, event_label = storm, g2g.sites = NULL, catchments_sf = wales_catchment_sf)  + labs(title = paste(" Sim QT gridded exceedance -", storm), x = NULL, y = NULL)
@@ -328,35 +330,74 @@ for (storm in storm_names){
 ### Elwy at Ciara
 
 ```{r}
+
+flow_dir <- ascii.to.rast(read.ascii("../data/rasters/flowuk_nffs.asc"))
+acc_uk <- ascii.to.rast(read.ascii("../data/for_cdata/accuk_nffs.asc"))
+
+
+
+# flow_dir <- extract.at.points()
+
+
 ciara_exceedance_grid_sufi <- event_exceedance_grids$sufi$Ciara
 ciara_exceedance_grid_sim <- event_exceedance_grids$sim$Ciara
 
 catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
-elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
+# elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
 elwy_catchment_sf <- catchments[catchments$g2g_id == elwy_catchment_id,]
+
+
 
 
 # target_catchment <- st_transform(target_catchment, st_crs(g2g_rast))
 
 rast_cropped_sufi <- terra::crop(ciara_exceedance_grid_sufi, elwy_catchment_sf)
 rast_cropped_sim <- terra::crop(ciara_exceedance_grid_sim, elwy_catchment_sf)
+rast_cropped_flowdir <- terra::crop(flow_dir, elwy_catchment_sf)
+rast_cropped_acc <- terra::crop(acc_uk, elwy_catchment_sf)
+
 
 
 rast_cutout_sim <- terra::mask(rast_cropped_sim, elwy_catchment_sf)
 rast_cutout_sufi <- terra::mask(rast_cropped_sufi, elwy_catchment_sf)
+rast_cutout_flowdir <- terra::mask(rast_cropped_flowdir, elwy_catchment_sf)
+rast_cutout_acc <- terra::mask(rast_cropped_acc, elwy_catchment_sf)
 
 df_cutout_sim <- as.data.frame(rast_cutout_sim, xy = TRUE)
 df_cutout_sufi <- as.data.frame(rast_cutout_sufi, xy = TRUE)
+df_cutout_flowdir <- as.data.frame(rast_cutout_flowdir, xy = TRUE)
+df_cutout_acc <- as.data.frame(rast_cutout_acc, xy = TRUE)
+flowdir_plot <- df_cutout_flowdir[df_cutout_acc$accuk_nffs > 3,]
 
 
-names(df_cutout_sim)[3] <- "value" 
-names(df_cutout_sufi)[3] <- "value" 
+acc <- df_cutout_acc$accuk_nffs[
+  match(
+    paste(df_cutout_sim$x, df_cutout_sim$y),
+    paste(df_cutout_acc$x, df_cutout_acc$y)
+  )
+]
+
+df_cutout_sim_plot <- df_cutout_sim[acc > 3, ]
+
+acc <- df_cutout_acc$accuk_nffs[
+  match(
+    paste(df_cutout_sufi$x, df_cutout_sufi$y),
+    paste(df_cutout_acc$x, df_cutout_acc$y)
+  )
+]
+
+df_cutout_sufi_plot <- df_cutout_sufi[acc > 3, ]
+
+
+
+names(df_cutout_sim_plot)[3] <- "value" 
+names(df_cutout_sufi_plot)[3] <- "value" 
 
 
 threshold_colours <- c(
     "None"  = "white",
-    "qmed"  = "#08306b",
-    "q5"    = "#2171b5",
+    "qmed"  = "#285ead",
+    "q5"    = "#3c88c9",
     "q10"   = "#41b6c4",
     "q25"   = "#ffff33",
     "q50"   = "#fd8d3c",
@@ -365,47 +406,522 @@ threshold_colours <- c(
     "q1000" = "#4d0000"
   )
 
-  
+
+# Copy data frame
+flowdir <- flowdir_plot
+
+# D8 lookup tables
+dx_lookup <- c(
+  "1"   =  1,  # E
+  "2"   =  1,  # SE
+  "4"   =  0,  # S
+  "8"   = -1,  # SW
+  "16"  = -1,  # W
+  "32"  = -1,  # NW
+  "64"  =  0,  # N
+  "128" =  1   # NE
+)
+
+dy_lookup <- c(
+  "1"   =  0,  # E
+  "2"   = -1,  # SE
+  "4"   = -1,  # S
+  "8"   = -1,  # SW
+  "16"  =  0,  # W
+  "32"  =  1,  # NW
+  "64"  =  1,  # N
+  "128" =  1   # NE
+)
+
+flowdir$dx <- dx_lookup[as.character(flowdir$flowuk_nffs)]
+flowdir$dy <- dy_lookup[as.character(flowdir$flowuk_nffs)]
+
+# Arrow length in metres
+L <- 400
+
+flowdir$xend <- flowdir$x + flowdir$dx * L
+flowdir$yend <- flowdir$y + flowdir$dy * L
+
+
 ggplot() +
-  geom_raster(data = df_cutout_sim, aes(x = x, y = y, fill = value)) +
+  geom_raster(data = df_cutout_sim_plot, aes(x = x, y = y, fill = value)) +
   
   geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
+  geom_segment(
+      data = flowdir,
+      aes(
+        x = x,
+        y = y,
+        xend = xend,
+        yend = yend
+      ),
+      arrow = arrow(length = unit(1.5, "mm")),
+      colour = "black",
+      linewidth = 0.3
+    ) +
   
 
   coord_sf(datum = st_crs(27700)) +
   labs(title = "sim G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
   theme_minimal() +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    plot.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent"),
+    legend.key = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
   scale_fill_manual(
-      values = threshold_colours, 
-      breaks = names(threshold_colours), # Removed the trailing comma here
-      name = "QT Threshold exceeded", 
-      drop = FALSE, 
-      na.value = NA
-    ) 
+  values = threshold_colours,
+  name = "QT Threshold exceeded",
+  na.value = NA
+)
 
 
 
-ggplot() +
-  geom_raster(data = df_cutout_sufi, aes(x = x, y = y, fill = value)) +
+q <- ggplot() +
+  geom_raster(data = df_cutout_sufi_plot, aes(x = x, y = y, fill = value), na.rm = TRUE) +
   
-  geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
+  geom_sf(data = elwy_catchment_sf, fill = NA, colour = "white", linewidth = 0.6) +
+  geom_segment(
+      data = flowdir,
+      aes(
+        x = x,
+        y = y,
+        xend = xend,
+        yend = yend
+      ),
+      arrow = arrow(length = unit(1.5, "mm")),
+      colour = "white",
+      linewidth = 0.3
+    ) +
   
 
   coord_sf(datum = st_crs(27700)) +
   labs(title = "SUFI G2G Cutout: Elwy Catchment", x = NULL, y = NULL) +
   theme_minimal() +
+theme(
+  plot.background = element_rect(fill = "transparent", colour = NA),
+  panel.background = element_rect(fill = "transparent", colour = NA),
+
+  plot.title = element_text(colour = "white", face = "bold"),
+  axis.text = element_text(colour = "white"),
+  axis.title = element_text(colour = "white"),
+
+  legend.title = element_text(colour = "white"),
+  legend.text = element_text(colour = "white"),
+
+  legend.background = element_rect(fill = "transparent", colour = NA),
+  legend.key = element_rect(fill = "transparent", colour = NA),
+
+  panel.grid = element_blank()
+)+
+
   scale_fill_manual(
-      values = threshold_colours, 
-      breaks = names(threshold_colours), # Removed the trailing comma here
-      name = "QT Threshold exceeded", 
-      drop = FALSE, 
-      na.value = NA
-    ) 
+  values = threshold_colours,
+  name = "QT Threshold exceeded",
+  na.value = NA
+)
+
+ggsave(
+  "../data/figures/elwy_network_sufi.png",
+  bg = "transparent",
+  plot = q,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
 
 
 ```
 
 
+### Dennis at Login
+
+```{r}
+
+flow_dir <- ascii.to.rast(read.ascii("../data/rasters/flowuk_nffs.asc"))
+acc_uk <- ascii.to.rast(read.ascii("../data/for_cdata/accuk_nffs.asc"))
+
+
+
+# flow_dir <- extract.at.points()
+
+
+dennis_exceedance_grid_sufi <- event_exceedance_grids$sufi$Dennis
+dennis_exceedance_grid_sim <- event_exceedance_grids$sim$Dennis
+
+catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
+# elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
+login_catchment_sf <- catchments[catchments$g2g_id == "060S0579W_TG_2080",]
+
+
+
+
+# target_catchment <- st_transform(target_catchment, st_crs(g2g_rast))
+
+rast_cropped_sufi <- terra::crop(dennis_exceedance_grid_sufi, login_catchment_sf)
+rast_cropped_sim <- terra::crop(dennis_exceedance_grid_sim, login_catchment_sf)
+rast_cropped_flowdir <- terra::crop(flow_dir, login_catchment_sf)
+rast_cropped_acc <- terra::crop(acc_uk, login_catchment_sf)
+
+
+
+rast_cutout_sim <- terra::mask(rast_cropped_sim, login_catchment_sf)
+rast_cutout_sufi <- terra::mask(rast_cropped_sufi, login_catchment_sf)
+rast_cutout_flowdir <- terra::mask(rast_cropped_flowdir, login_catchment_sf)
+rast_cutout_acc <- terra::mask(rast_cropped_acc, login_catchment_sf)
+
+df_cutout_sim <- as.data.frame(rast_cutout_sim, xy = TRUE)
+df_cutout_sufi <- as.data.frame(rast_cutout_sufi, xy = TRUE)
+df_cutout_flowdir <- as.data.frame(rast_cutout_flowdir, xy = TRUE)
+df_cutout_acc <- as.data.frame(rast_cutout_acc, xy = TRUE)
+flowdir_plot <- df_cutout_flowdir[df_cutout_acc$accuk_nffs > 3,]
+
+
+acc <- df_cutout_acc$accuk_nffs[
+  match(
+    paste(df_cutout_sim$x, df_cutout_sim$y),
+    paste(df_cutout_acc$x, df_cutout_acc$y)
+  )
+]
+
+df_cutout_sim_plot <- df_cutout_sim[acc > 3, ]
+
+acc <- df_cutout_acc$accuk_nffs[
+  match(
+    paste(df_cutout_sufi$x, df_cutout_sufi$y),
+    paste(df_cutout_acc$x, df_cutout_acc$y)
+  )
+]
+
+df_cutout_sufi_plot <- df_cutout_sufi[acc > 3, ]
+
+
+
+names(df_cutout_sim_plot)[3] <- "value" 
+names(df_cutout_sufi_plot)[3] <- "value" 
+
+
+threshold_colours <- c(
+    "None"  = "white",
+    "qmed"  = "#285ead",
+    "q5"    = "#3c88c9",
+    "q10"   = "#41b6c4",
+    "q25"   = "#ffff33",
+    "q50"   = "#fd8d3c",
+    "q100"  = "#e31a1c",
+    "q250"  = "#99000d",
+    "q1000" = "#4d0000"
+  )
+
+
+# Copy data frame
+flowdir <- flowdir_plot
+
+# D8 lookup tables
+dx_lookup <- c(
+  "1"   =  1,  # E
+  "2"   =  1,  # SE
+  "4"   =  0,  # S
+  "8"   = -1,  # SW
+  "16"  = -1,  # W
+  "32"  = -1,  # NW
+  "64"  =  0,  # N
+  "128" =  1   # NE
+)
+
+dy_lookup <- c(
+  "1"   =  0,  # E
+  "2"   = -1,  # SE
+  "4"   = -1,  # S
+  "8"   = -1,  # SW
+  "16"  =  0,  # W
+  "32"  =  1,  # NW
+  "64"  =  1,  # N
+  "128" =  1   # NE
+)
+
+flowdir$dx <- dx_lookup[as.character(flowdir$flowuk_nffs)]
+flowdir$dy <- dy_lookup[as.character(flowdir$flowuk_nffs)]
+
+# Arrow length in metres
+L <- 400
+
+flowdir$xend <- flowdir$x + flowdir$dx * L
+flowdir$yend <- flowdir$y + flowdir$dy * L
+
+
+p <- ggplot() +
+  geom_raster(data = df_cutout_sim_plot, aes(x = x, y = y, fill = value)) +
+  
+  geom_sf(data = login_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
+  geom_segment(
+      data = flowdir,
+      aes(
+        x = x,
+        y = y,
+        xend = xend,
+        yend = yend
+      ),
+      arrow = arrow(length = unit(1.5, "mm")),
+      colour = "black",
+      linewidth = 0.3
+    ) +
+  
+
+  coord_sf(datum = st_crs(27700)) +
+  labs(title = "Login Catchment: Storm Dennis (SIM)", x = NULL, y = NULL) +
+  theme_minimal() +
+  theme_minimal() +
+  theme(
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    plot.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent"),
+    legend.key = element_rect(fill = "transparent"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  ) +
+  scale_fill_manual(
+  values = threshold_colours,
+  name = "QT Threshold exceeded",
+  na.value = NA
+)
+
+
+ggsave(
+  "../data/figures/login_network_sufi.png",
+  bg = "transparent",
+  plot = p,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+
+
+q <- ggplot() +
+  geom_raster(data = df_cutout_sufi_plot, aes(x = x, y = y, fill = value), na.rm = TRUE) +
+  
+  geom_sf(data = login_catchment_sf, fill = NA, colour = "white", linewidth = 0.6) +
+  geom_segment(
+      data = flowdir,
+      aes(
+        x = x,
+        y = y,
+        xend = xend,
+        yend = yend
+      ),
+      arrow = arrow(length = unit(1.5, "mm")),
+      colour = "white",
+      linewidth = 0.3
+    ) +
+  
+
+  coord_sf(datum = st_crs(27700)) +
+  labs(title = "SUFI G2G Cutout: Login, Storm Dennis", x = NULL, y = NULL) +
+  theme_minimal() +
+theme(
+  plot.background = element_rect(fill = "transparent", colour = NA),
+  panel.background = element_rect(fill = "transparent", colour = NA),
+
+  plot.title = element_text(colour = "white", face = "bold"),
+  axis.text = element_text(colour = "white"),
+  axis.title = element_text(colour = "white"),
+
+  legend.title = element_text(colour = "white"),
+  legend.text = element_text(colour = "white"),
+
+  legend.background = element_rect(fill = "transparent", colour = NA),
+  legend.key = element_rect(fill = "transparent", colour = NA),
+
+  panel.grid = element_blank()
+)+
+
+  scale_fill_manual(
+  values = threshold_colours,
+  name = "QT Threshold exceeded",
+  na.value = NA
+)
+
+ggsave(
+  "../data/figures/login_dennis_network_sufi.png",
+  bg = "transparent",
+  plot = q,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+```
+
+
+### Unnamed storm 3 at Redbrook
+
+```{r}
+
+flow_dir <- ascii.to.rast(read.ascii("../data/rasters/flowuk_nffs.asc"))
+acc_uk <- ascii.to.rast(read.ascii("../data/for_cdata/accuk_nffs.asc"))
+
+
+
+# flow_dir <- extract.at.points()
+
+
+unnamed_storm_3_exceedance_grid_sufi <- event_exceedance_grids$sufi$Unnamed_storm_3
+
+catchments <- st_read("../data/20250610_g2g_ffc_v2_0/fullcats_g2g_ffc_v2_0_loc.shp")
+# elwy_catchment_id <- wales_cdata[wales_cdata$River.Name == "ELWY[N][WA]"]$G2G.ID
+redbrook_catchment_sf <- catchments[catchments$g2g_id == "055023_TG_322",]
+
+
+
+
+# target_catchment <- st_transform(target_catchment, st_crs(g2g_rast))
+
+rast_cropped_sufi <- terra::crop(unnamed_storm_3_exceedance_grid_sufi, redbrook_catchment_sf)
+rast_cropped_flowdir <- terra::crop(flow_dir, redbrook_catchment_sf)
+rast_cropped_acc <- terra::crop(acc_uk, redbrook_catchment_sf)
+
+
+
+rast_cutout_sufi <- terra::mask(rast_cropped_sufi, redbrook_catchment_sf)
+rast_cutout_flowdir <- terra::mask(rast_cropped_flowdir, redbrook_catchment_sf)
+rast_cutout_acc <- terra::mask(rast_cropped_acc, redbrook_catchment_sf)
+
+df_cutout_sufi <- as.data.frame(rast_cutout_sufi, xy = TRUE)
+df_cutout_flowdir <- as.data.frame(rast_cutout_flowdir, xy = TRUE)
+df_cutout_acc <- as.data.frame(rast_cutout_acc, xy = TRUE)
+flowdir_plot <- df_cutout_flowdir[df_cutout_acc$accuk_nffs > 10,]
+
+
+
+acc <- df_cutout_acc$accuk_nffs[
+  match(
+    paste(df_cutout_sufi$x, df_cutout_sufi$y),
+    paste(df_cutout_acc$x, df_cutout_acc$y)
+  )
+]
+
+df_cutout_sufi_plot <- df_cutout_sufi[acc > 10, ]
+
+
+
+names(df_cutout_sim_plot)[3] <- "value" 
+names(df_cutout_sufi_plot)[3] <- "value" 
+
+
+threshold_colours <- c(
+    "None"  = "white",
+    "qmed"  = "#285ead",
+    "q5"    = "#3c88c9",
+    "q10"   = "#41b6c4",
+    "q25"   = "#ffff33",
+    "q50"   = "#fd8d3c",
+    "q100"  = "#e31a1c",
+    "q250"  = "#99000d",
+    "q1000" = "#4d0000"
+  )
+
+
+# Copy data frame
+flowdir <- flowdir_plot
+
+# D8 lookup tables
+dx_lookup <- c(
+  "1"   =  1,  # E
+  "2"   =  1,  # SE
+  "4"   =  0,  # S
+  "8"   = -1,  # SW
+  "16"  = -1,  # W
+  "32"  = -1,  # NW
+  "64"  =  0,  # N
+  "128" =  1   # NE
+)
+
+dy_lookup <- c(
+  "1"   =  0,  # E
+  "2"   = -1,  # SE
+  "4"   = -1,  # S
+  "8"   = -1,  # SW
+  "16"  =  0,  # W
+  "32"  =  1,  # NW
+  "64"  =  1,  # N
+  "128" =  1   # NE
+)
+
+flowdir$dx <- dx_lookup[as.character(flowdir$flowuk_nffs)]
+flowdir$dy <- dy_lookup[as.character(flowdir$flowuk_nffs)]
+
+# Arrow length in metres
+L <- 400
+
+flowdir$xend <- flowdir$x + flowdir$dx * L
+flowdir$yend <- flowdir$y + flowdir$dy * L
+
+
+
+
+
+q <- ggplot() +
+  geom_raster(data = df_cutout_sufi_plot, aes(x = x, y = y, fill = value), na.rm = TRUE) +
+  
+  geom_sf(data = redbrook_catchment_sf, fill = NA, colour = "white", linewidth = 0.6) +
+  geom_segment(
+      data = flowdir,
+      aes(
+        x = x,
+        y = y,
+        xend = xend,
+        yend = yend
+      ),
+      arrow = arrow(length = unit(1.5, "mm")),
+      colour = "white",
+      linewidth = 0.3
+    ) +
+  
+
+  coord_sf(datum = st_crs(27700)) +
+  labs(title = "SUFI G2G Cutout: Redbrook, Unnamed storm 3", x = NULL, y = NULL) +
+  theme_minimal() +
+theme(
+  plot.background = element_rect(fill = "transparent", colour = NA),
+  panel.background = element_rect(fill = "transparent", colour = NA),
+
+  plot.title = element_text(colour = "white", face = "bold"),
+  axis.text = element_text(colour = "white"),
+  axis.title = element_text(colour = "white"),
+
+  legend.title = element_text(colour = "white"),
+  legend.text = element_text(colour = "white"),
+
+  legend.background = element_rect(fill = "transparent", colour = NA),
+  legend.key = element_rect(fill = "transparent", colour = NA),
+
+  panel.grid = element_blank()
+)+
+
+  scale_fill_manual(
+  values = threshold_colours,
+  name = "QT Threshold exceeded",
+  na.value = NA
+)
+
+ggsave(
+  "../data/figures/redbrook_unnamed_3_network_sufi.png",
+  bg = "transparent",
+  plot = q,
+  width = 8,
+  height = 6,
+  dpi = 300
+)
+
+
+```
 ## Extract topography and calculate TRI
 
 ```{r}

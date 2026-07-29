@@ -82,22 +82,29 @@ make.hydrograph.simple <-function(event.data, g2g.id, storm.name, cdata, qt.data
 }
 
 accum.rainfall <- function(rg, cdata) {
+
   g2g_ids <- names(rg)[-1]
-  catchment_sizes <- cdata[match(g2g_ids, G2G.ID)]$CATCHMENTSIZE
-  # rainfall_m <- apply(rg[,-1], 2,function(x)  x/ 1000)
-  # catchment_sizes_m <- vapply(catchment_sizes, 1, function(x) x * )
-  rainfall_volume_m3 <- sweep(rg[,-1], 2, catchment_sizes * 1000, "*") ## converts to m^3
-  # rainfall_volume_m <- apply(rainfall_volume, 2, function(x) x * 1000)
-  cum_rainfall_volume_m3 <- as.data.table(apply(rainfall_volume_m3,2, cumsum))
-  cum_rainfall_volume_m3 <- cbind(rg[,1], cum_rainfall_volume_m3) ## add date_time back
+  catchment_sizes <- cdata[match(g2g_ids, G2G.ID)]$CATCHMENTSIZE  # km2
+
+  area_m2 <- catchment_sizes * 1e6
+
+  rainfall_volume_m3 <- sweep(
+    rg[,-1] * 0.25 / 1000,
+    2,
+    area_m2,
+    "*"
+  )
+
+  cum_rainfall_volume_m3 <- as.data.table(apply(rainfall_volume_m3, 2, cumsum))
+  cum_rainfall_volume_m3 <- cbind(rg[,1], cum_rainfall_volume_m3)
+
   return(cum_rainfall_volume_m3)
 }
-
 
 accum.river.vol <- function(event){
 
   river_vol_m3 <- lapply(event, function(x){
-    sweep(x[,-1], 2, 15 * 60, "*" )
+    sweep(x[,-1], 2, 15 * 60, "*")
   })
   cum_river_volume_m3 <- lapply(river_vol_m3, function(x){
     as.data.table(
@@ -332,7 +339,7 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
             linewidth = 0.8
           ) +
           scale_y_continuous(
-            name = "Rainfall (mm/15 min)",
+            name = "Rainfall (mm/hour)",
             sec.axis = sec_axis(
               ~ . / scale_fac_rain,
               name = expression("Cumulative rainfall volume ("*m^3*")")

@@ -109,7 +109,7 @@ qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../dat
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
 qt_grid_list <- lapply(qt_grid_paths, read.ascii)
 names(qt_grid_list) <- qt_val ## name by qt
-qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata)
+qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata, write = TRUE)
 ```
 
 
@@ -354,74 +354,6 @@ comp_dt_list <- lapply(highest_qt_exceeded_list, function(x) {
 
 ```
 
-```{r eval = FALSE}
-
-worst_mismatches <- comp_dt[!is.na(rank_diff)][order(-rank_diff)]
-worst_mismatches <-worst_mismatches[worst_mismatches$rank_diff >=4] ## filter by where qt was a difference of 3
-
-
-mismatch_plots <- list()
-n_mismatch <- min(10, nrow(worst_mismatches))
-for (i in 1:n_mismatch) {
-  event <- worst_mismatches[i, Storm]
-  g2g_id <- worst_mismatches[i, G2G.ID]
-  event_data <- events_list[[event]]
-  mismatch_plots[[i]] <- tryCatch(make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt), error = function(e) NA)
-}
-mismatch_plots <- mismatch_plots[!sapply(mismatch_plots, is.na)]
-
-wrap_plots(mismatch_plots, ncol = 2) +
-  plot_annotation(title = "Largest flow mismatches (rank_diff >= 4)")
-
-
-```
-
-
-<!-- ### False alarms (model exceeds qmed, observed under qmed ) -->
-
-```{r echo = FALSE, warning = FALSE, eval = FALSE}
-#| fig-width: 15
-#| fig-height: 20
-
-# model false alarm for flood
-model_false_positives <- comp_dt[is.na(obs)]
-model_false_positives <- model_false_positives[order(-mod)]
-
-false_positive_plots <- list()
-for (i in 1:16){
-  event <- model_false_positives[i, Storm]
-  g2g_id <- model_false_positives[i, G2G.ID]
-  event_data <- events_list[[event]]
-  false_positive_plots[[i]] <- tryCatch(make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt), error = function(e) NA)
-} ## some of these are NA because lack of obs data??
-
-false_positive_plots <- false_positive_plots[!sapply(false_positive_plots, is.na)]
-
-grid.arrange(grobs = false_positive_plots)
-
-```
-
-<!-- ### Model misses (observed exceeds qmed, model under qmed ) -->
-
-```{r eval = FALSE}
-#| fig-width: 15
-#| fig-height: 20
-
-model_miss <- comp_dt[is.na(mod)]
-model_miss <- model_miss[order(-obs)]
-model_miss_plots <- list()
-
-for (i in 1:10){
-  event <- model_miss[i, Storm]
-  g2g_id <- model_miss[i, G2G.ID]
-  event_data <- events_list[[event]]
-  model_miss_plots[[i]] <- make.hydrograph(event_data, g2g_id, storm.name = event, cdata = wales_cdata, qt.data = filtered_qt)
-}
-grid.arrange(grobs = model_miss_plots)
-
-```
-
-
 ## Prediction accuracy metrics
 
 * POD = probability of detection (closer to 1 = better)
@@ -492,24 +424,68 @@ q <- ggplot(sufi_heatmap_dt, aes(x = obs, y = mod, fill = N)) +
     panel.grid = element_blank(), # Removes default grid lines for a cleaner look
     axis.text.x = element_text(angle = 45, hjust = 1) # Angles x-axis labels if they get crowded
 )
+p <- p +
+  theme(
+    plot.background  = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA),
 
-# ggsave(
-#           filename = "../data/figures/qt_heatmap_sim.png",
-#           plot = p,
-#           width = 8,
-#           height = 6,
-#           units = "in",
-#           dpi = 300
-#         )
+    axis.text.x  = element_text(colour = "white", size = 18, face = "bold"),
+    axis.text.y  = element_text(colour = "white", size = 18, face = "bold"),
+    axis.title.x = element_text(colour = "white"),
+    axis.title.y = element_text(colour = "white"),
+    axis.ticks   = element_line(colour = "white"),
 
-# ggsave(
-#           filename = "../data/figures/qt_heatmap_sufi.png",
-#           plot = q,
-#           width = 8,
-#           height = 6,
-#           units = "in",
-#           dpi = 300
-#         )
+    legend.text  = element_text(colour = "white"),
+    legend.title = element_text(colour = "white"),
+
+    plot.title    = element_text(colour = "white"),
+    plot.subtitle = element_text(colour = "white"),
+    plot.caption  = element_text(colour = "white")
+  )
+
+q <- q + theme(
+    plot.background  = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA),
+
+    axis.text.x  = element_text(colour = "white", size = 18, face = "bold"),
+    axis.text.y  = element_text(colour = "white", size = 18, face = "bold"),
+    axis.title.x = element_text(colour = "white"),
+    axis.title.y = element_text(colour = "white"),
+    axis.ticks   = element_line(colour = "white"),
+
+    legend.text  = element_text(colour = "white"),
+    legend.title = element_text(colour = "white"),
+
+    plot.title    = element_text(colour = "white"),
+    plot.subtitle = element_text(colour = "white"),
+    plot.caption  = element_text(colour = "white")
+  )
+
+
+
+ggsave(
+          filename = "../data/figures/qt_heatmap_sim.svg",
+          plot = p,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+
+ggsave(
+          filename = "../data/figures/qt_heatmap_sufi.svg",
+          plot = q,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
 
 
 
@@ -899,6 +875,7 @@ wales_cdata <- merge(wales_cdata, urb_sub_combined, by = "G2G.ID")
 ## NRW Threshold exceedance
 
 ```{r}
+max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 
 nrw_threshold <- fread("../data/nrw_alert_warning_flow_thresh.csv", fill =TRUE, sep=",")
 
@@ -945,7 +922,7 @@ max_discharge_sim_sufi_filt <- lapply(flood_thresh, function(level){
 
 ```{r}
 
-max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
+# max_discharge_sim_sufi <- lapply(events_list, lapply, extract.peak.discharge)
 
 nrw_thresh_exceed <- Map(function(max_disch, thresh_type){
   lapply(max_disch, lapply, pod.far.tol, threshold = thresh_type)
@@ -1054,6 +1031,43 @@ summary(detection_interaction)
 
 Detection probability increased significantly with precipitation, catchment size, and urban/suburban cover. Inclusion of a precipitation × urbanisation interaction did not improve model performance (LRT: χ² = 0.56, df = 1, p = 0.45; ΔAIC = +1.43), suggesting that the influence of precipitation on detection probability was not dependent on urbanisation.
 
+
+## CSI calculation per site
+
+```{r}
+
+
+sufi_dt <- nrw_thresh_exceed_dt$alert$sufi
+
+sufi_thresholds_dt <- list(alert = nrw_thresh_exceed_dt$alert$sufi, warning =nrw_thresh_exceed_dt$warning$sufi , severe = nrw_thresh_exceed_dt$severe$sufi)
+
+
+create.csi.plot <- function(dt){
+  site_counts <- dt[, .N, by = .(G2G.ID, outcome)]
+  site_counts_wide <- dcast(site_counts, G2G.ID ~ outcome, value.var = "N", fill = 0)
+
+
+  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)]
+  site_counts_wide[, CSI_lenient :=
+    (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)]
+    required_cols <- c("hit", "near miss", "miss", "false alarm")
+
+  for (col in required_cols) {
+    if (!col %in% names(site_counts_wide)) {
+      site_counts_wide[, (col) := 0]
+    }
+  }
+
+  csi_strict <- site_counts_wide[, .(G2G.ID, CSI_strict)]
+
+  p <- plot.single.point(site_counts_wide$G2G.ID, wales =wales, cdata = wales_cdata, fill.variable = csi_strict)
+  return(p)
+}
+
+
+csi_plots <- lapply(sufi_thresholds_dt, create.csi.plot)
+
+```
 
 ## plots of detection vs predictors
 
@@ -1188,9 +1202,119 @@ comparison_plots
 
 ```
 
+```{r eval = FALSE}
+
+create.csi.plot <- function(dt, lenient = FALSE){
+  site_counts <- dt[, .N, by = .(G2G.ID, outcome)]
+  site_counts_wide <- dcast(site_counts, G2G.ID ~ outcome, value.var = "N", fill = 0)
+
+
+  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)]
+  site_counts_wide[, CSI_lenient :=
+    (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)]
+    required_cols <- c("hit", "near miss", "miss", "false alarm")
+
+  for (col in required_cols) {
+    if (!col %in% names(site_counts_wide)) {
+      site_counts_wide[, (col) := 0]
+    }
+  }
+
+  if (!lenient){
+      csi <- site_counts_wide[, .(G2G.ID, CSI_strict)]
+  } else {
+    csi <- site_counts_wide[, .(G2G.ID, CSI_lenient)]
+  }
+
+  p <- plot.single.point(
+  site_counts_wide$G2G.ID,
+  wales = wales,
+  cdata = wales_cdata,
+  fill.variable = csi
+) +
+  labs(
+    fill = "CSI",
+    size = expression("Catchment size (" * km^2 * ")")
+  ) +
+  theme(
+    # transparent background
+    plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA),
+
+    # remove grid
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+
+    # remove axes
+    axis.text = element_blank(),
+    axis.title = element_blank(),
+    axis.ticks = element_blank(),
+    axis.line = element_blank(),
+
+    # optional: remove title
+    plot.title = element_blank()
+  )
+  return(p)
+}
+
+sufi_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt$sufi, lenient = FALSE)
+
+
+sim_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt$sim, lenient = FALSE)
+
+ggsave(
+          filename = "../data/figures/sim_csi_qmed.png",
+          plot = sim_csi_qmed,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+ggsave(
+          filename = "../data/figures/sufi_csi_qmed.png",
+          plot = sufi_csi_qmed,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+
+
+sufi_csi_qmed_len <- create.csi.plot(qmed_pod_far_tol_dt$sufi, lenient = TRUE)
+
+
+sim_csi_qmed_len <- create.csi.plot(qmed_pod_far_tol_dt$sim, lenient = TRUE)
+
+ggsave(
+          filename = "../data/figures/sim_csi_qmed_lenient.png",
+          plot = sim_csi_qmed_len,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+ggsave(
+          filename = "../data/figures/sufi_csi_qmed_lenient.png",
+          plot = sufi_csi_qmed_len,
+          width = 8,
+          height = 6,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+```
+
+
 ## Model QMED detection
 
 ```{r}
+
+
 detection_data <- lapply(qmed_pod_far_tol_dt_rg, function(dt){
   dt[outcome %in% c("hit", "near miss", "miss")]
 })
@@ -1210,10 +1334,12 @@ detection_data <- lapply(detection_data, function(x){
   x[, precip_sc := scale(precip)]
   x[, catchmentsize_sc := scale(CATCHMENTSIZE)]
   x[,terrian_sc := scale(sd_TRI)]
+  x[,rg_dist_sc := scale(mean_dist_km)]
 })
 
-detection_strict <- glmer(hit_strict ~ precip_sc + catchmentsize_sc +  urban_sc  +(1 | G2G.ID) + (1 | Storm),
+detection_strict <- glmer(hit_strict ~ precip_sc + catchmentsize_sc +  urban_sc + rg_dist_sc + terrian_sc+(1 | G2G.ID) + (1 | Storm),
                        data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
+
 
 detection_lenient <- glmer(hit_lenient ~ precip_sc + catchmentsize_sc +  urban_sc  +(1 | G2G.ID) + (1 | Storm),
                         data = detection_data$sufi, family = binomial, control = glmerControl(optimizer = "bobyqa"))
@@ -1237,26 +1363,39 @@ summary(detection_interaction)
 ```{r}
 
 
-p <- ggplot(qmed_pod_far_tol_dt_rg$sim, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+p <- ggplot(qmed_pod_far_tol_dt_rg$sim, aes(x = scale(precip), y = outcome, color = outcome)) +
   geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
   labs(
-    x = "Catchment size km^2",
+    x = "Scaled Catchment size km^2",
     y = "Detection category",
     title = "Detection categories by catchment size (SIM)"
   ) +
   theme_minimal() +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+      plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA))
 
 
-q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = CATCHMENTSIZE, y = outcome, color = outcome)) +
+
+q1 <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = scale(CATCHMENTSIZE), y = outcome, color = outcome)) +
   geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
   labs(
-    x = "Catchment size km^2",
+    x = "Scaled Catchment size km^2",
     y = "Detection category",
     title = "Detection categories by catchment size (SUFI)"
   ) +
   theme_minimal() +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+  plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA))
+
+
+
+
 
 
 p + q
@@ -1271,15 +1410,19 @@ theme_minimal() +
 theme(legend.position = "none")
 
 
-q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = precip, y = outcome, color = outcome)) +
+q2 <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = scale(precip), y = outcome, color = outcome)) +
 geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
 labs(
-  x = "summed average gauge interpolated precipitiation",
+  x = "Scaled summed average gauge \n interpolated precipitiation",
   y = "Detection category",
   title = "Detection categories by precipitiation (SUFI)"
 ) +
 theme_minimal() +
-theme(legend.position = "none")
+theme(legend.position = "none",
+plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA))
 
 p + q
 
@@ -1294,18 +1437,33 @@ theme_minimal() +
 theme(legend.position = "none")
 
 
-q <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = urban.suburban.cover, y = outcome, color = outcome)) +
+q3 <- ggplot(qmed_pod_far_tol_dt_rg$sufi, aes(x = scale(urban.suburban.cover), y = outcome, color = outcome)) +
 geom_jitter(height = 0.15, width = 0, alpha = 0.6, size = 2) +
 labs(
-  x = "summed average gauge interpolated precipitiation",
+  x = "Scaled urban/suburban score",
   y = "Detection category",
   title = "Detection categories by urban/suburban cover (SUFI)"
 ) +
 theme_minimal() +
-theme(legend.position = "none")
+theme(legend.position = "none",
+plot.background = element_rect(fill = "transparent", colour = NA),
+    panel.background = element_rect(fill = "transparent", colour = NA),
+    legend.background = element_rect(fill = "transparent", colour = NA),
+    legend.box.background = element_rect(fill = "transparent", colour = NA))
 
 
 p+q
+
+ggsave(
+          filename = "../data/figures/sufi_boxplot_hit.png",
+          plot = q1 +q2 +q3,
+          width = 15,
+          height = 8,
+          units = "in",
+          dpi = 300,
+          bg = "transparent"
+        )
+
 
 ```
 

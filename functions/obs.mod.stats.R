@@ -50,20 +50,56 @@ extract.peak.discharge <- function(event, qt = NULL, T) {
 
 
 extract.peak.discharge.timing <- function(event) {
+  
   mod <- event$mod
   obs <- event$obs
-  max_mod_time <- c()
-  for (i in colnames(mod)[2:ncol(mod)]) { ## skip the date
-  idx <- which.max(mod[[i]])
-  max_mod_time[i] <- as.character(mod$DATE_TIME[idx])
+  
+  results <- data.frame(
+    site = character(),
+    mod_peak = character(),
+    obs_peak = character(),
+    time_diff_hours = numeric(),
+    classification = character(),
+    stringsAsFactors = FALSE
+  )
+  
+  sites <- intersect(colnames(mod)[-1], colnames(obs)[-1])
+  
+  for (site in sites) {
+    
+    # Peak times
+    mod_idx <- which.max(mod[[site]])
+    obs_idx <- which.max(obs[[site]])
+    
+    mod_peak <- mod$DATE_TIME[mod_idx]
+    obs_peak <- obs$DATE_TIME[obs_idx]
+    
+    # Difference in hours (absolute)
+    diff_hours <- abs(
+      as.numeric(difftime(mod_peak, obs_peak, units = "hours"))
+    )
+    
+    # Classification
+    classification <- dplyr::case_when(
+      diff_hours <= 6  ~ "hit",
+      diff_hours <= 12 ~ "near miss",
+      TRUE             ~ "miss"
+    )
+    
+    results <- rbind(
+      results,
+      data.frame(
+        site = site,
+        mod_peak = as.character(mod_peak),
+        obs_peak = as.character(obs_peak),
+        time_diff_hours = diff_hours,
+        classification = classification
+      )
+    )
   }
-  max_obs_time <- c()
-  for (i in colnames(obs)[2:ncol(obs)]) { ## skip the date
-    idx <- which.max(obs[[i]])
-    max_obs_time[i] <- as.character(obs$DATE_TIME[idx])
-  }
-  return(list(mod = max_mod_time, obs = max_obs_time))
-} ## needs work on this...
+  
+  return(results)
+}
 
 
 
@@ -107,9 +143,19 @@ pod.far.tol <- function(max_discharge, threshold){
       obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
       mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
 
-      if (is.na(obs_val) || is.na(mod_val) || is.na(thresh)) {
-        next
-      }
+      obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
+      mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
+      thresh  <- threshold[id]
+
+    if (length(obs_val) != 1 ||
+        length(mod_val) != 1 ||
+        length(thresh)  != 1 ||
+        is.na(obs_val) ||
+        is.na(mod_val) ||
+        is.na(thresh)) {
+      next
+    }
+
 
       obs_exceed <- obs_val >= thresh
       mod_exceed <- mod_val >= thresh

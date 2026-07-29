@@ -310,4 +310,50 @@ all_thresh[
   )
 ]
 
+
+conf <- all_thresh[
+  ,
+  .N,
+  by = .(obs_level, mod_level)
+]
+
+
+labs <- c(
+  "None",
+  "Alert",
+  "Warning",
+  "Severe"
+)
+
+conf[
+  ,
+  `:=`(
+    obs_level = factor(labs[obs_level + 1], levels = labs),
+    mod_level = factor(labs[mod_level + 1], levels = labs)
+  )
+]
+
+library(ggplot2)
+
+ggplot(
+  conf,
+  aes(
+    x = mod_level,
+    y = obs_level,
+    fill = N
+  )
+) +
+  geom_tile() +
+  geom_text(aes(label = N)) +
+  scale_fill_viridis_c() +
+  labs(
+    x = "Predicted highest threshold",
+    y = "Observed highest threshold",
+    title = "Warning category confusion matrix"
+  ) +
+  theme_minimal()
+
+  
+
+
 ```

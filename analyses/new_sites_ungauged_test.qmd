@@ -45,13 +45,54 @@ source("../functions/extract.g2g.grid.R")
 # source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 source("../functions/obs.mod.stats.R")
-
 ```
 
 
 
 ```{r}
-dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
+mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
+
+file <- list.files(mod_dir)
+mod <- read.time.series(file, mod_dir, output = "model")
+# obs <- read.time.series(file, dir, output = "observed")
+
+
+obs_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/obs"
+obs_dirs <- list.files(obs_dir, recursive = TRUE)
+flow_files <- obs_dirs[ !grepl("G2G", obs_dirs)]
+flow_files <- flow_files[ grepl("Obs", flow_files) | grepl("Rated", flow_files)]
+
+years <- c("2018", "2019", "2020", "2021")
+
+obs <- list()
+for (year in years){
+  # obs_1 <- fread(file.path(obs_dir, flow_files[grepl(year, flow_files)][1]))
+  # obs_2 <- fread(file.path(obs_dir, flow_files[grepl(year, flow_files)][2]))
+  ob_year <- lapply( file.path(obs_dir, flow_files[grepl(year, flow_files)]), function(x) fread(x))
+  obs_comb <- cbindlist(ob_year)
+  setnames(obs_comb, as.character(unlist(obs_comb[1])))
+  obs_comb <- obs_comb[-1,]
+  obs_comb <- obs_comb[-1,]
+  setnames(obs_comb, 1, "DATE_TIME")
+  obs_comb[obs_comb < - 999] <- NA
+  obs[[year]] <- obs_comb
+}
+
+obs <- rbindlist(obs)
+
+names(year_data) <- years
+
+
+
+
+# nffs_csv <- fread("../data/cdata/ffc_locations_2022_wales_nffs_id.csv")
+# g2g_new_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv")
+# sum(nffs_csv$`NFFS NAME` %in% g2g_new_metadata$Location)
+
+
+
+# no_name_sites <- g2g_new_metadata[c(grep("^NRW",g2g_new_metadata$G2G.ID)),]
+# no_name_sites$Location %in%nffs_csv$`NFFS NAME`
 
 
 
