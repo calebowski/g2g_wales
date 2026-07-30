@@ -39,7 +39,14 @@ Most of the analyses are written in Quarto. They can be rendered with the follow
 * This script generates a pdf when rendered with `quarto render *NRW_Thresholds_plots.qmd*.qmd --to pdf` which plots the PODFAR (with tolerance) across the three different NRW thresholds (alert, warning and severe warning).
 * Note that the number of sites with threshold is ~ 52, so it has a lower sample size than when plotting QMED exceedance.
 
+### `plot_event_hydrographs.R`
 
+* This script plots the orginal sites hydrographs
+* Uses two windows: 7 days either side of event and 36 hours either side of the event
+* Plots qt values from  `../data/qt_grids`
+* Plots rainfall (incl accumulating) from `../data/catchment_average_rg_precip.csv`
+* Plots whether the site is sufi or not from `../data/sites_list_final.csv`
+* Saves the pngs to `../data/figures/wales_events_2018_2021_hydrographs_7_day` & `../data/figures/wales_events_2018_2021_hydrographs_36_hours`
 
 
 

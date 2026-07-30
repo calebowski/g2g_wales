@@ -81,6 +81,9 @@ make.hydrograph.simple <-function(event.data, g2g.id, storm.name, cdata, qt.data
   return(p)
 }
 
+
+## accumulated rainfall
+## convers from mm/hour to m3
 accum.rainfall <- function(rg, cdata) {
 
   g2g_ids <- names(rg)[-1]
@@ -89,7 +92,7 @@ accum.rainfall <- function(rg, cdata) {
   area_m2 <- catchment_sizes * 1e6
 
   rainfall_volume_m3 <- sweep(
-    rg[,-1] * 0.25 / 1000,
+    rg[,-1] * 0.25 / 1000, ## 15/60 = 0.25
     2,
     area_m2,
     "*"
@@ -101,6 +104,9 @@ accum.rainfall <- function(rg, cdata) {
   return(cum_rainfall_volume_m3)
 }
 
+
+## calculate river volume
+## convert from mm/s to m3
 accum.river.vol <- function(event){
 
   river_vol_m3 <- lapply(event, function(x){
@@ -118,6 +124,9 @@ accum.river.vol <- function(event){
   }, event, cum_river_volume_m3)
   return(cum_river_volume_m3)
 }
+
+## monster plot
+## accum.rg and rain.data and accum.rv can be left as NULL if not available, if else loops inside to deal with that
 
 make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NULL, accum.rv = NULL, g2g.id, pstart = NULL, pend = NULL, storm.name, cdata, qt.data, sufi, ...){
 
@@ -175,12 +184,14 @@ make.hydrograph.sim.sufi <-function(event.data, rain.data = NULL, accum.rg = NUL
     # rain.data[, rain_ymax := ymax]
   } 
 
+  ## accumulated rainfall
   if (!is.null(accum.rg)){
     accum.rg <- accum.rg[[storm.name]][, .(DATE_TIME, precip = get(g2g.id))]
     if (!is.null(pstart)) accum.rg <- accum.rg[accum.rg$DATE_TIME >= pstart, ]
     if (!is.null(pend))   accum.rg <- accum.rg[accum.rg$DATE_TIME <= pend, ]
   } 
 
+  ## acccumated river volume
   if (!is.null(accum.rv)) {
     accum.rv_obs <- accum.rv[[storm.name]]$obs[, list(DATE_TIME, vol = get(paste0(g2g.id, "_Obs")))]
     accum.rv_sim <- accum.rv[[storm.name]]$sim[, list(DATE_TIME, vol = get(paste0(g2g.id, "_Mod")))]

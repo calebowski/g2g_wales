@@ -1,5 +1,5 @@
 
-#' Event should be a list of names mod and obs, containing data.tables of columns corresponding to g2g ids
+# Event should be a list of names mod and obs, containing data.tables of columns corresponding to g2g ids
 peak.magnitude.error <- function(event) {
     peak_discharge <- extract.peak.discharge(event)
     mod <- peak_discharge$mod
@@ -26,7 +26,8 @@ filter.qt <- function(event, qt) {
 
 
 
-## 
+## extracts peak discharge, can return QT as a value if inputted.
+## qt is the qt_dt, with one col for g2g id and the others qt values. T needs to be a character string, eg "qmed" corresponding to colnames of qt_dt
 extract.peak.discharge <- function(event, qt = NULL, T) {
   mod <- event$mod
   obs <- event$obs
@@ -40,67 +41,13 @@ extract.peak.discharge <- function(event, qt = NULL, T) {
   }
   #
   if(!is.null(qt)){ 
-    qt_value <- qt[, get(T)]
+    qt_value <- qt[, get(T)] ## extract the qt column wanted specified by T character string
     names(qt_value) <- qt[, G2G.ID]
     return(list(mod = max_mod, obs = max_obs, qt = qt_value))
   } else {
     return(list(mod = max_mod, obs = max_obs))
   }
 }
-
-
-extract.peak.discharge.timing <- function(event) {
-  
-  mod <- event$mod
-  obs <- event$obs
-  
-  results <- data.frame(
-    site = character(),
-    mod_peak = character(),
-    obs_peak = character(),
-    time_diff_hours = numeric(),
-    classification = character(),
-    stringsAsFactors = FALSE
-  )
-  
-  sites <- intersect(colnames(mod)[-1], colnames(obs)[-1])
-  
-  for (site in sites) {
-    
-    # Peak times
-    mod_idx <- which.max(mod[[site]])
-    obs_idx <- which.max(obs[[site]])
-    
-    mod_peak <- mod$DATE_TIME[mod_idx]
-    obs_peak <- obs$DATE_TIME[obs_idx]
-    
-    # Difference in hours (absolute)
-    diff_hours <- abs(
-      as.numeric(difftime(mod_peak, obs_peak, units = "hours"))
-    )
-    
-    # Classification
-    classification <- dplyr::case_when(
-      diff_hours <= 6  ~ "hit",
-      diff_hours <= 12 ~ "near miss",
-      TRUE             ~ "miss"
-    )
-    
-    results <- rbind(
-      results,
-      data.frame(
-        site = site,
-        mod_peak = as.character(mod_peak),
-        obs_peak = as.character(obs_peak),
-        time_diff_hours = diff_hours,
-        classification = classification
-      )
-    )
-  }
-  
-  return(results)
-}
-
 
 
 thresh.exceed <- function(max_discharge, threshold = NULL) {
@@ -128,7 +75,9 @@ thresh.exceed <- function(max_discharge, threshold = NULL) {
 }
 
 
+## pod far with tolerance
 
+## note
 pod.far.tol <- function(max_discharge, threshold){
     mod <- max_discharge$mod
     obs <- max_discharge$obs

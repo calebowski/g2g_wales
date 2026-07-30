@@ -1,3 +1,5 @@
+
+## adapted from `griddedData_class_jrw.py` script converted to R
 read.ascii <- function(file_name) {
   cat("*opening ascii: ", file_name, "\n")
   
@@ -105,7 +107,7 @@ normalise.to.corner <- function(g) {
 }
 
 
-
+# sanitising check for making sure grids align
 check.grid.alignment <- function(grid_list, tol = 1e-6) {
   ref <- grid_list[[1]]
   for (i in seq_along(grid_list)[-1]) {
@@ -139,6 +141,8 @@ ascii.to.rast <- function(g, crs = "EPSG:27700") {
 }
 #
 
+
+## extracting maxflow grids
 load.maxflow.event <- function(file_path) {
   g <- normalise.to.corner(read.ascii(file_path)) ## load the maxflow grids by calling read.ascii
   ascii.to.rast(g)

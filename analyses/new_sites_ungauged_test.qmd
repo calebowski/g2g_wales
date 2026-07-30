@@ -90,8 +90,6 @@ g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= In
 
 # sites_to_keep <- g2g_new_sites_metadata[!is.na(SITE)  & Flow_vs_level == "Flow",]$G2G.ID
 
-
-
 mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
 
 file <- list.files(mod_dir)
@@ -100,8 +98,6 @@ mod_new <- read.time.series(file, mod_dir, output = "model")
 obs_dir <-  "../data/g2g_data/observed_new_sites"
 file <- "2018_2021_flows_new_sites.csv"
 obs_new <- read.time.series(file, obs_dir, output = "observed")
-
-
 
 # all_g2g_output <- list(new = new_output, og = og_output)
 
@@ -202,13 +198,13 @@ create.csi.plot <- function(dt, wales, cdata, lenient = FALSE, status_col = "Ver
     }
   }
 
-  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)]
-  site_counts_wide[, CSI_lenient := (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)]
+  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)] ## strict csi
+  site_counts_wide[, CSI_lenient := (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)] ## lenient csi
   
-  site_counts_wide[is.nan(CSI_strict), CSI_strict := 0]
-  site_counts_wide[is.nan(CSI_lenient), CSI_lenient := 0]
+  # site_counts_wide[is.nan(CSI_strict), CSI_strict := 0]
+  # site_counts_wide[is.nan(CSI_lenient), CSI_lenient := 0]
 
-  # Pick requested CSI metric
+  # if else for which csi is chosen as arg
   if (!lenient) {
     site_counts_wide[, CSI := CSI_strict]
   } else {
@@ -239,8 +235,8 @@ create.csi.plot <- function(dt, wales, cdata, lenient = FALSE, status_col = "Ver
         fill = CSI,
         shape = factor(Site_Status)
       ),
-      color = "black",   # Solid black border around points
-      stroke = 0.8,      # Thicker outline for high contrast
+      color = "black",   
+      stroke = 0.8,      
       alpha = 0.95
     ) +
     coord_sf(datum = 27700) +
