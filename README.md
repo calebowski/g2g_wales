@@ -87,14 +87,27 @@ names(qt_grid_list) <- qt_val ## name by qt
 qt_dt <- make.qt.csv(qt_grid_list, cdata = wales_cdata, write = TRUE)
 ```
 
-This gets file names, extracts qt grids with read.ascii, then the list is applied to make.qt.csv and can use write = TRUE to generate csv
+ This gets file names, extracts qt grids with read.ascii, then the list is applied to make.qt.csv and can use write = TRUE to generate csv
 
 The other functions are used for the gridded outputs, specifically aligning the qt grids and max flow grids, then extracting the qt vals exceeded from the max flow.
 
+### `load.g2g.runs.R`
 
-TODO:
-- barplot shows new -> sim_old -> sufi_old
-- barplot shows qmed -> q5 -> nrw alert (just for sites we have alert data for  SUFI OLD)
-- reorder bar plots so it goes from bottom up: hit, correct reject, near miss, NA, close false alarm, false alarm, miss 
--  move stuff onto S drive
--  do hydrographs if time
+This loads the original grid to grid runs (does not apply to new runs because paths are only for original runs)
+`make.events` subsets both mod and obs into the correct time spans for each storm. There is a lot of redundant code in this function but mainly as optional args
+
+
+### `make.hydrograph.R`
+* utility functions: `accum.rainfall` & `accum.river.vol` generate the cumulative rainfall and river volume time series
+* `make.hydrograph.sim.sufi` is the plotting function for generating hydrographs
+  * this takes the event data, which is a nested element from `make.events` (i.e. `events_list[["Callum"]])` ), extracts the grid to grid id with a character string, takes the storm name (i.e. "Callum"), cdata is the metadata sheet (assigned `wales_cdata`), qt.data (this is the `qt_dt` written by the code on lines 82-88 on this readme) and sufi which is the `../data/sites_list_final.csv`. the g2g.id is used to extract all the data from these objects
+  
+### `obs.mod.stats.R`
+
+* these are the functions for any calculations
+* `peak.magnitude.error` which takes one nested list element of the `make.events` output. again this would look like `event_list[["Callum]]` Returns a list of the pme's
+* `extract.peak.discharge` again takes one nested list element of `make.events` and qt vals
+* extracts peak discharge, can return QT as a value if inputted.
+* qt is the qt_dt is again the datatable from lines 82-88
+* `thresh.exceed`
+
