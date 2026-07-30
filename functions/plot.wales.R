@@ -327,8 +327,8 @@ plot.wales.pme <- function(dt, wales, storm.name) {
 }
 
 ## utility funtion to plot a single point based on g2g
-
 ## g2g.id can be a vector of strings or single string
+## uses catchment metadata to use catchment size
 plot.single.point <- function(g2g.id, cdata, wales, fill.variable = NULL, ...) {
 
   match_call <- match.call()

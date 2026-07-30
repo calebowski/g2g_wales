@@ -70,7 +70,7 @@ extract.at.points <- function(raster_obj, X, Y) {
   return(ret)
 }
 
-
+## this makes the csv file if write = TRUE
 make.qt.csv <- function(qt.grid.list, cdata, write = FALSE) {
   g2g_ids <- cdata$G2G.ID
   qt_dt <- data.table()
@@ -91,7 +91,7 @@ make.qt.csv <- function(qt.grid.list, cdata, write = FALSE) {
 }
 
 
-## Normalise every grid to a common CORNER-origin convention
+## Normalise every grid to common corner-origin
 normalise.to.corner <- function(g) {
   if (g$CenterOrCorner == "center") {
     g$x0 <- g$x0 - g$gridSize / 2
@@ -105,9 +105,7 @@ normalise.to.corner <- function(g) {
 }
 
 
-## Check a set of grids share identical dimensions/origin
-##    after normalisation -- stop loudly if not, rather than
-##    silently comparing misaligned cells.
+
 check.grid.alignment <- function(grid_list, tol = 1e-6) {
   ref <- grid_list[[1]]
   for (i in seq_along(grid_list)[-1]) {
@@ -142,7 +140,7 @@ ascii.to.rast <- function(g, crs = "EPSG:27700") {
 #
 
 load.maxflow.event <- function(file_path) {
-  g <- normalise.to.corner(read.ascii(file_path)) ## load the maxflow grids by internally calling read.ascii
+  g <- normalise.to.corner(read.ascii(file_path)) ## load the maxflow grids by calling read.ascii
   ascii.to.rast(g)
 }
 

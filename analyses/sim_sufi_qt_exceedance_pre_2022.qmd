@@ -493,41 +493,41 @@ p + q
 
 
 
+## this prints the podfar table using kable, which converts it to md format
+# lapply(names(comp_dt_list), function(model_config){
 
-lapply(names(comp_dt_list), function(model_config){
+#   comp_dt <- comp_dt_list[[model_config]]  
 
-  comp_dt <- comp_dt_list[[model_config]]  
-
-  hits_misses <- list()
-  for (qt in q_levels){
-    hits_misses[[qt]] <- comp_dt[, .(
-      Hits         = sum(obs >= qt & mod >= qt, na.rm = TRUE),
-      False_Alarms = sum((obs < qt | is.na(obs)) & mod >= qt, na.rm = TRUE),
-      Misses       = sum(obs >= qt & (mod < qt | is.na(mod)), na.rm = TRUE),
-      n_obs = sum(obs >= qt, na.rm = TRUE)
-    ), by = Storm] ## test over qmed
-  }
+#   hits_misses <- list()
+#   for (qt in q_levels){
+#     hits_misses[[qt]] <- comp_dt[, .(
+#       Hits         = sum(obs >= qt & mod >= qt, na.rm = TRUE),
+#       False_Alarms = sum((obs < qt | is.na(obs)) & mod >= qt, na.rm = TRUE),
+#       Misses       = sum(obs >= qt & (mod < qt | is.na(mod)), na.rm = TRUE),
+#       n_obs = sum(obs >= qt, na.rm = TRUE)
+#     ), by = Storm] ## test over qmed
+#   }
 
 
-  library(knitr)
+#   library(knitr)
 
-  for (qt in q_levels) {
-    hits_misses[[qt]][, POD := Hits / (Hits + Misses)]
-    hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
-    hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
+#   for (qt in q_levels) {
+#     hits_misses[[qt]][, POD := Hits / (Hits + Misses)]
+#     hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
+#     hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
     
-    tab <- hits_misses[[qt]][!(Hits == 0 & False_Alarms == 0 & Misses == 0)]    
-    # tab <- tab[!POD == "NaN" & !FAR == "NaN" & CSI == "NaN"]
-    # cat(paste0(qt, "\n"))
+#     tab <- hits_misses[[qt]][!(Hits == 0 & False_Alarms == 0 & Misses == 0)]    
+#     # tab <- tab[!POD == "NaN" & !FAR == "NaN" & CSI == "NaN"]
+#     # cat(paste0(qt, "\n"))
     
-    print(
-      kable(
-        tab,
-        caption = paste(model_config, "prediction accuracy metrics for", qt)
-      )
-    )
-  }
-})
+#     print(
+#       kable(
+#         tab,
+#         caption = paste(model_config, "prediction accuracy metrics for", qt)
+#       )
+#     )
+#   }
+# })
 
 ```
 
@@ -934,59 +934,6 @@ nrw_thresh_exceed_dt_rg <- lapply(nrw_thresh_exceed_dt, lapply, merge, rf_event_
 
 
 storm_names <- unique(nrw_thresh_exceed_dt$sim$Storm)
-
-# alert_plots <- setNames(lapply(storm_names, function(storm_name) {
-#   p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$alert$sim,  wales, storm.name = storm_name) +
-#     labs(subtitle = "SIM")
-
-#   p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$alert$sufi, wales, storm.name = storm_name) +
-#     labs(subtitle = "SUFI")
-
-#   p_sim + p_sufi +
-#     plot_annotation(title = paste("Storm:", storm_name))
-# }), storm_names)
-
-# alert_plots
-
-
-# warning_plots <- setNames(lapply(storm_names, function(storm_name) {
-#   p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$warning$sim,  wales, storm.name = storm_name) +
-#     labs(subtitle = "SIM")
-
-#   p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$warning$sufi, wales, storm.name = storm_name) +
-#     labs(subtitle = "SUFI")
-
-#   p_sim + p_sufi +
-#     plot_annotation(title = paste("Storm:", storm_name))
-# }), storm_names)
-
-# warning_plots
-
-
-# severe_warning_plots <- setNames(lapply(storm_names, function(storm_name) {
-#   p_sim  <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$severe$sim,  wales, storm.name = storm_name) +
-#     labs(subtitle = "SIM")
-
-#   p_sufi <- plot.wales.nrw.thresh.tol(nrw_thresh_exceed_dt$severe$sufi, wales, storm.name = storm_name) +
-#     labs(subtitle = "SUFI")
-
-#   p_sim + p_sufi +
-#     plot_annotation(title = paste("Storm:", storm_name))
-# }), storm_names)
-
-# severe_warning_plots
-
-
-# ## need to do a podfar
-# detection_model_sufi <- glmer(
-#   hit ~  log(CATCHMENTSIZE) + mean_dist_km + sd_TRI +
-#     (1 | G2G.ID) + (1 | Storm),
-#   data = hits_dt$sufi,
-#   family = binomial(link = "logit"),
-#   control = glmerControl(optimizer = "bobyqa")  # more robust convergence for binomial GLMMs
-# )
-# summary(detection_model_sufi)
-
 
 detection_data <- lapply(nrw_thresh_exceed_dt_rg$alert, function(dt){
   dt[outcome %in% c("hit", "near miss", "miss")]

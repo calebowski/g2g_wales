@@ -106,7 +106,7 @@ qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../dat
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
 qt_grids <- lapply(qt_grid_paths, function(f) normalise.to.corner(read.ascii(f)))
 names(qt_grids) <- qt_val
-check.grid.alignment(qt_grids) ## sanitise check
+check.grid.alignment(qt_grids) ## santising
 qt_rasts <- lapply(qt_grids, ascii.to.rast) ## convert to terra format
 names(qt_rasts) <- qt_val ## name by qt val
 qt_order <- c("qmed", "q5", "q10", "q25", "q50", "q100", "q250", "q1000")
@@ -115,17 +115,17 @@ qt_rasts <- qt_rasts[intersect(qt_order, names(qt_rasts))]
 wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
 wales <- st_transform(wales, 27700)
 
-catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
+catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf) 
 
 
-catchments_sf <- st_as_sf(
+catchments_sf <- st_as_sf( ## convert to sf
   catchments,
   coords = c("WISKI.EASTING", "WISKI.NORTHING"),
   crs = 27700,
   remove = FALSE
-)
+) ## use wiski for precise coords
 wales_poly <- st_union(wales)
-sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon, this is to include Severn catchment
 wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## filter by wales
 
 
@@ -174,7 +174,7 @@ mod_ts <- g2g_output_2018_2022$mod
 
 events_list <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
 
-## change dates so it fits with gridded dates
+## change dates so it fits with gridded dates John gave
 ciara_pstart <-  as.POSIXct(paste(2020, 2, 1, sep="-"), tz="GMT")
 ciara_pend <-  as.POSIXct(paste(2020, 2, 16, sep="-"), tz="GMT")
 dennis_pstart <-  as.POSIXct(paste(2020, 2, 15, sep="-"), tz="GMT")
@@ -182,7 +182,7 @@ dennis_pend <-  as.POSIXct(paste(2020, 2, 22, sep="-"), tz="GMT")
 unnamed_2_pstart <-  as.POSIXct(paste(2020, 2, 21, sep="-"), tz="GMT")
 unnamed_2_pend <-  as.POSIXct(paste(2020, 2, 28, sep="-"), tz="GMT")
 jorge_pstart <-  as.POSIXct(paste(2020, 2, 27, sep="-"), tz="GMT")
-jorge_pend <-  as.POSIXct(paste(2020, 3, 9, sep="-"), tz="GMT")
+jorge_pend <-  as.POSIXct(paste(2020, 3, 9, sep="-"), tz="GMT") 
 
 events_list <- lapply(events_list, function(config){
 
@@ -269,7 +269,6 @@ highest_qt_exceeded_list <- lapply(merged_dat, function(model_config){
     final_levels <- c("None", "qmed", "q5", "q10", "q25", "q50", "q75", "q100", "q200", "q250", "q1000")
     highest_qt_exceeded[, Threshold := factor(Threshold, levels = final_levels, ordered = TRUE)]
 
-    # Optional: Sort it cleanly for viewing
     setorder(highest_qt_exceeded, Storm, G2G.ID, Data_Type)
     return(highest_qt_exceeded)
 })
@@ -444,16 +443,16 @@ flowdir$yend <- flowdir$y + flowdir$dy * L
 
 
 ggplot() +
-  geom_raster(data = df_cutout_sim_plot, aes(x = x, y = y, fill = value)) +
+  geom_raster(data = df_cutout_sim_plot, aes(x = x, y = y, fill = value)) + ## fills by highest QT value exceeded
   
   geom_sf(data = elwy_catchment_sf, fill = NA, colour = "black", linewidth = 0.6) +
   geom_segment(
       data = flowdir,
       aes(
         x = x,
-        y = y,
+        y=y,
         xend = xend,
-        yend = yend
+        yend= yend
       ),
       arrow = arrow(length = unit(1.5, "mm")),
       colour = "black",

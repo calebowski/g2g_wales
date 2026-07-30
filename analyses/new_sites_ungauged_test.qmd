@@ -1,5 +1,5 @@
 ---
-title: "QT Exceedannce plots  for Storm events (Wales 2018-2021)"
+title: "Qmed Exceeddance: New sites added"
 subtitle: "Sim & SUFI data"
 author: "Caleb Scutt"
 format:
@@ -8,7 +8,7 @@ format:
     toc: true
     code-fold: true
     fig-width: 10
-    fig-height: 5
+    fig-height: 8
     embed-resources: true
     theme: flatly
   typst:
@@ -45,104 +45,45 @@ source("../functions/extract.g2g.grid.R")
 # source("../functions/qt.exceed.R")
 source("../functions/plot.wales.R")
 source("../functions/obs.mod.stats.R")
+
 ```
 
 
+## Read in old sites
 
 ```{r}
-# g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= Inf)
-# g2g_new_sites_metadata[SITE == "", SITE := NA_character_]
 
-# sites_to_keep <- g2g_new_sites_metadata[!is.na(SITE)  & Flow_vs_level == "Flow",]$G2G.ID
+g2g_output_2018_2022 <- load.g2g.data(dates = c(2018, 2021), sufi = TRUE)
+obs_ts <- g2g_output_2018_2022$obs
+mod_ts <- g2g_output_2018_2022$mod
+## read in the events
+events <- fread("../data/notable_events.csv")
+events_pre_2022 <- events[Year <= 2021,]
+## read in the catchment metadata
+catchments <- fread("../data/cdata/catchment_cdata_EA-NRW.csv", fill = Inf)
+## filter by wales
+wales <- st_read("../data/SENC_MAY_2026_WA_BFC_-1059615406868623242/SENC_MAY_2026_WA_BFC.shp")
+wales <- st_transform(wales, 27700)
 
-
-
-# mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
-
-# file <- list.files(mod_dir)
-# mod <- read.time.series(file, mod_dir, output = "model")
-# # obs <- read.time.series(file, dir, output = "observed")
-
-
-# obs_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/obs"
-# obs_dirs <- list.files(obs_dir, recursive = TRUE)
-# flow_files <- obs_dirs[ !grepl("G2G", obs_dirs)]
-# flow_files <- flow_files[ grepl("Obs", flow_files) | grepl("Rated", flow_files)]
-
-# years <- c("2018", "2019", "2020", "2021")
-# obs_list <- list()
-# for (year in years) {
-  
-#   year_files <- flow_files[dirname(flow_files) == year]
-  
-#   # 1. Read files and drop the last row
-#   ob_year <- lapply(
-#     file.path(obs_dir, year_files[grepl(year, year_files)]),
-#     function(x) {
-#       dt <- fread(x, fill = TRUE)
-#       dt[-nrow(dt), ]
-#     }
-#   )
-  
-#   # 2. Merge all files for the year
-#   obs_comb <- Reduce(
-#     function(x, y) merge(x, y, by = names(x)[1], all = TRUE),
-#     ob_year
-#   )
-  
-#   # 3. Extract names from Row 1, handle empty/NAs, and force them to be unique immediately
-#   new_names <- as.character(unlist(obs_comb[1]))
-#   new_names[is.na(new_names) | new_names == ""] <- "Unknown"
-#   setnames(obs_comb, make.unique(new_names))
-  
-#   # 4. Drop the first two rows (headers) and explicitly rename the date column
-#   obs_comb <- obs_comb[-c(1, 2), ]
-#   setnames(obs_comb, 1, "DATE_TIME")
-  
-#   # 5. Get the clean list of target columns (all except DATE_TIME)
-#   cols_to_change <- names(obs_comb)[-1]
-  
-#   # 6. Convert to numeric FIRST (This will spawn 'NAs introduced by coercion' warnings, which is expected/safe)
-#   obs_comb[, (cols_to_change) := lapply(.SD, as.numeric), .SDcols = cols_to_change]
-  
-#   # 7. Safely replace values <= -999 with NA using optimized data.table logic
-#   for (col in cols_to_change) {
-#     set(obs_comb, which(obs_comb[[col]] <= -999), col, NA)
-#   }
-  
-#   obs_list[[year]] <- obs_comb
-# }
+## extract catchments (note this is whole uk)
+catchments_sf <- st_as_sf(
+  catchments,
+  coords = c("WISKI.EASTING", "WISKI.NORTHING"),
+  crs = 27700,
+  remove = FALSE
+)## use wiski easting and northing for precise coords
+wales_poly <- st_union(wales) ## combine with wales
+sf_g2g_ids <- unique(c(catchments_sf[st_intersects(catchments_sf, wales_poly, sparse = FALSE), ]$G2G.ID, catchments[Region. == "Wales"]$G2G.ID)) ## use both ids coded as Wales, plus anything inside the polygon
+wales_cdata <- catchments[G2G.ID %in% sf_g2g_ids]## this is the old catchment data sheet
 
 
-# obs <- rbindlist(obs_list)
 
-# sites_to_keep <- intersect(names(obs), sites_to_keep)
-
-# obs_filt <- obs[
-#   , c("DATE_TIME", sites_to_keep),
-#   with = FALSE
-# ] ## note that sites 055029A, 55015 are not found in obs
-
-# mod_filt <- mod[
-#   , c("DATE_TIME", paste0(sites_to_keep, "_Mod")),
-#   with = FALSE
-# ]
+```
 
 
-# # common_ids <- intersect(
-# #   names(obs)[-1],
-# #   gsub("_Mod", "", names(mod))
-# # )
+## Read in new sites
 
-# obs_filt <- obs_filt[-1:-2, ]
-# obs_filt[obs_filt <= - 999] <- NA
-# setnames(
-#   obs_filt,
-#   old = names(obs_filt)[-1],
-#   new = paste0(names(obs_filt)[-1], "_Obs")
-# )
-
-# new_sites <- list(obs = obs_filt, mod = mod_filt)
+```{r}
 
 g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= Inf)
 # g2g_new_sites_metadata[SITE == "", SITE := NA_character_]
@@ -154,13 +95,15 @@ g2g_new_sites_metadata <- fread("../data/new_g2g_sites_g2g_coords.csv", fill= In
 mod_dir <- "../data/g2g_data/g2g_flows_sim_extrasites/20260724_102214"
 
 file <- list.files(mod_dir)
-mod <- read.time.series(file, mod_dir, output = "model")
+mod_new <- read.time.series(file, mod_dir, output = "model")
 
 obs_dir <-  "../data/g2g_data/observed_new_sites"
 file <- "2018_2021_flows_new_sites.csv"
-obs <- read.time.series(file, obs_dir, output = "observed")
+obs_new <- read.time.series(file, obs_dir, output = "observed")
 
 
+
+# all_g2g_output <- list(new = new_output, og = og_output)
 
 
 ```
@@ -169,51 +112,380 @@ obs <- read.time.series(file, obs_dir, output = "observed")
 ## make events
 
 ```{r}
+
 events <- fread("../data/notable_events.csv")
 events_pre_2022 <- events[Year <= 2021,]
-events_list <- make.events.list(mod, obs, events_pre_2022, cdata = g2g_new_sites_metadata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+events_list_og <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
+events_list_new <- make.events.list(mod_new, obs_new, events_pre_2022, cdata = g2g_new_sites_metadata, region.classifier =  NULL, exclude.non.notable.sites = FALSE)
+
 
 qt_grid_paths <- mixedsort(sort(file.path("../data/qt_grids", list.files("../data/qt_grids")))) ## create relative paths
 qt_val <- sub("_.*", "", mixedsort(sort(list.files("../data/qt_grids"))))
 qt_grid_list <- lapply(qt_grid_paths, read.ascii)
 names(qt_grid_list) <- qt_val ## name by qt
-qt_dt <- make.qt.csv(qt_grid_list, cdata = g2g_new_sites_metadata, write = FALSE)
+qt_dt_old <- make.qt.csv(qt_grid_list, cdata = wales_cdata, write = FALSE)
+qt_dt_old[, Site:= NULL]
+qt_dt_new <- make.qt.csv(qt_grid_list, cdata = g2g_new_sites_metadata, write = FALSE)
 
+qt_dt <- rbind(qt_dt_old, qt_dt_new) ## new combined qt data for new and old sites
+# fwrite(qt_dt, "../data/g2g_qt_old_new_sites_added.csv")
+
+setnames(g2g_new_sites_metadata, "ac_catchmentsize_g2g", "CATCHMENTSIZE")
+wales_cdata <- wales_cdata[,.(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
+g2g_new_sites_metadata <- g2g_new_sites_metadata[,.(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)]
+
+## combine cdata metadata
+complete_metadata <- rbind(wales_cdata, g2g_new_sites_metadata)
+
+```
+
+
+## QT Exceedance PODFAR
+
+```{r}
+
+# max_discharge_ <- list()
+# for (t_val in qt_val) {
+#   max_discharge_qt[[t_val]] <- lapply(events_list$new, lapply, function(event_mod_obs) {
+#     extract.peak.discharge(event_mod_obs, qt_dt, t_val)
+#   })
+# }
+
+max_discharge_new <- lapply(events_list_new, extract.peak.discharge)
+
+max_discharge_og <- lapply(events_list_og, lapply,extract.peak.discharge)
+
+
+
+qmed_old <-qt_dt_old[, .(G2G.ID, qmed)]$qmed
+names(qmed_old) <- qt_dt_old$G2G.ID
+qmed_new <-qt_dt_new[, .(G2G.ID, qmed)]$qmed
+names(qmed_new) <- qt_dt_new$G2G.ID
+
+
+qmed_pod_far_tol_og <- lapply(max_discharge_og, lapply, pod.far.tol, threshold = qmed_old)
+qmed_pod_far_tol_new <- lapply(max_discharge_new,  pod.far.tol, threshold = qmed_new)
+
+
+
+qmed_pod_far_tol_og <- lapply(qmed_pod_far_tol_og, lapply, merge, y = complete_metadata, by = "G2G.ID")
+qmed_pod_far_tol_new <- lapply(qmed_pod_far_tol_new, merge, y = complete_metadata, by = "G2G.ID")
+
+qmed_pod_far_tol_dt_og <- lapply(qmed_pod_far_tol_og, rbindlist, idcol = "Storm")
+qmed_pod_far_tol_dt_new <- rbindlist(qmed_pod_far_tol_new, idcol = "Storm")
+
+qmed_pod_far_tol_dt_combined <- lapply(qmed_pod_far_tol_dt_og, function(og_dt) {
+  rbindlist(list(Old = og_dt, New = qmed_pod_far_tol_dt_new), idcol = "Version", fill = TRUE)
+})
+
+
+```
+
+## CSI (qmed exceedance) plot new vs old sites
+
+```{r}
+
+create.csi.plot <- function(dt, wales, cdata, lenient = FALSE, status_col = "Version"){
+  
+  by_cols <- c("G2G.ID", "outcome", status_col)
+  site_counts <- dt[, .N, by = mget(by_cols)]
+  
+  dcast_formula <- as.formula(paste("G2G.ID +", status_col, "~ outcome"))
+  site_counts_wide <- dcast(site_counts, dcast_formula, value.var = "N", fill = 0)
+
+  required_cols <- c("hit", "near miss", "miss", "false alarm")
+  for (col in required_cols) {
+    if (!col %in% names(site_counts_wide)) {
+      site_counts_wide[, (col) := 0]
+    }
+  }
+
+  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)]
+  site_counts_wide[, CSI_lenient := (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)]
+  
+  site_counts_wide[is.nan(CSI_strict), CSI_strict := 0]
+  site_counts_wide[is.nan(CSI_lenient), CSI_lenient := 0]
+
+  # Pick requested CSI metric
+  if (!lenient) {
+    site_counts_wide[, CSI := CSI_strict]
+  } else {
+    site_counts_wide[, CSI := CSI_lenient]
+  }
+
+  plot_data <- merge(
+    site_counts_wide,
+    cdata[, .(G2G.ID, G2G.Easting, G2G.Northing, CATCHMENTSIZE)],
+    by = "G2G.ID",
+    all.x = TRUE
+  )
+  
+  # filter out any missing coordinates or CSI values
+  plot_data <- plot_data[!is.na(G2G.Easting) & !is.na(CSI)]
+
+  setnames(plot_data, status_col, "Site_Status")
+
+  p <- ggplot() +
+    geom_sf(data = wales, fill = "#e9ecef", color = "#495057", linewidth = 0.5) +
+    
+    geom_point(
+      data = plot_data,
+      aes(
+        x = G2G.Easting,
+        y = G2G.Northing,
+        size = CATCHMENTSIZE,
+        fill = CSI,
+        shape = factor(Site_Status)
+      ),
+      color = "black",   # Solid black border around points
+      stroke = 0.8,      # Thicker outline for high contrast
+      alpha = 0.95
+    ) +
+    coord_sf(datum = 27700) +
+    
+    # CSI viridis color scale (0 to 1)
+    scale_fill_viridis_c(option = "viridis", limits = c(0, 1)) +
+    
+    # Fillable shapes: 21 = Circle, 24 = Triangle
+    scale_shape_manual(values = c(25, 21)) +
+    
+    # Catchment size point scaling
+    scale_size_continuous(range = c(2, 8)) +
+    
+    # Legend labels
+    labs(
+      fill  = if (lenient) "CSI (Lenient)" else "CSI (Strict)",
+      shape = "Site Type",
+      size  = expression("Catchment size (" * km^2 * ")")
+    ) +
+    
+    # Solid, crisp theme (high contrast, white backgrounds)
+    theme_bw(base_size = 12) +
+    theme(
+      plot.background   = element_rect(fill = "white", color = NA),
+      panel.background  = element_rect(fill = "#f8f9fa", color = "black"),
+      legend.background = element_rect(fill = "white", color = "gray80"),
+      legend.key        = element_blank(),
+      panel.grid.major  = element_line(color = "gray90", linetype = "dotted"),
+      panel.grid.minor  = element_blank(),
+      axis.text         = element_blank(),
+      axis.title        = element_blank(),
+      axis.ticks        = element_blank()
+    )
+
+  return(p)
+}
+
+
+
+sufi_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt_combined$sufi, wales = wales, cdata = complete_metadata, lenient = FALSE)
+
+sufi_csi_qmed_lenient <- create.csi.plot(qmed_pod_far_tol_dt_combined$sufi, wales = wales, cdata = complete_metadata, lenient = TRUE)
+
+
+sim_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt_combined$sim, wales = wales, cdata = complete_metadata, lenient = FALSE)
+
+sim_csi_qmed_lenient <- create.csi.plot(qmed_pod_far_tol_dt_combined$sim, wales = wales, cdata = complete_metadata, lenient = TRUE)
+
+sim_csi_qmed +sim_csi_qmed_lenient + plot_annotation(title = "SIM")
+
+sufi_csi_qmed +sufi_csi_qmed_lenient + plot_annotation(title = "SUFI")
 
 
 
 ```
 
 
-## QT Exceedance
 
 ```{r}
 
-max_discharge_qt <- list()
-for (t_val in qt_val) {
-  max_discharge_qt[[t_val]] <- lapply(events_list, function(event_mod_obs) {
-    extract.peak.discharge(event_mod_obs, qt_dt, t_val)
-  })
-}
 
 
+dt_sim  <- qmed_pod_far_tol_dt_combined$sim
+dt_sufi <- qmed_pod_far_tol_dt_combined$sufi
 
-qt_exceeded <- lapply(max_discharge_qt,lapply, thresh.exceed)
+plot_dt <- rbindlist(list(
+dt_sufi[Version == "New", .(Version = "New", Storm, outcome)],
+dt_sim[Version == "Old",  .(Version = "sim Old", Storm, outcome)],
+dt_sufi[Version == "Old", .(Version = "sufi Old", Storm, outcome)]
+))
+
+# 2. Set X-axis bar order: New -> sim Old -> sufi Old
+plot_dt[, Version := factor(Version, levels = c("New", "sim Old", "sufi Old"))]
+
+# 3. Set Stack fill order (Bottom -> Top)
+plot_dt[, outcome := factor(
+outcome,
+levels = c(
+  "miss" ,              # Top
+  "false alarm",
+  "close false alarm",
+  "missing data",
+  "near miss",
+  "correct rejection",
+  "hit"               # Top
+)
+)]
+
+# 4. Plot 3-bar comparison
+p <- ggplot(plot_dt[!is.na(outcome)], aes(x = Version, fill = outcome)) +
+geom_bar(position = "fill", color = "black", linewidth = 0.3) +
+facet_wrap(~ Storm) +
+scale_y_continuous(labels = scales::percent_format(), expand = c(0, 0)) +
+scale_fill_manual(
+  values = c(
+    "hit"               = "#2b83ba",  # Vibrant Blue
+    "correct rejection" = "#cccccc",  # Neutral Gray
+    "near miss"         = "#abdda4",  # Soft Light Green
+    "missing data"      = "#808080",  # Medium Gray
+    "close false alarm" = "#fee08b",  # Light Yellow / Gold
+    "false alarm"       = "#fdae61",  # Orange
+    "miss"              = "#d7191c"   # Deep Red
+  ),
+  drop = FALSE
+) +
+labs(
+  title = "Outcome Breakdown by Storm Event",
+  subtitle = "Comparing performance across New, sim Old, and sufi Old setups",
+  x = "Site Version",
+  y = "Percentage of Total Outcomes",
+  fill = "Outcome"
+) +
+theme_bw(base_size = 12) +
+theme(
+  plot.title = element_text(face = "bold"),
+  legend.position = "top",
+  axis.text.x = element_text(angle = 35, hjust = 1) # Angle labels so text doesn't overlap
+)
+
+p
+```
 
 
-qt_exceeded_dt_list <- lapply(qt_exceeded,  function(qt){
-    dt_exceed <- data.table(
-    unsplit_name     = names(unlist(qt)),
-    Exceeded = unlist(qt)
-    )
-    dt_exceed[, c("Storm", "Data_Type", "G2G.ID") := tstrsplit(unsplit_name, "\\.", keep = 1:3)]
-    dt_exceed[, G2G.ID := gsub("_Obs|_Mod", "", G2G.ID)]
-    dt_exceed[, unsplit_name := NULL]
-    setcolorder(dt_exceed, c("Storm", "Data_Type", "G2G.ID", "Exceeded"))
-    return(dt_exceed)
-})
+### Split plots by catchment size
 
-merged_dat <- lapply(qt_exceeded_dt_list,  merge, qt_dt, by = "G2G.ID")
+```{r}
 
+
+# 1. Combine sim and sufi, keeping CATCHMENTSIZE and G2G.ID for subsetting/counting
+dt_sim  <- copy(qmed_pod_far_tol_dt_combined$sim)
+dt_sufi <- copy(qmed_pod_far_tol_dt_combined$sufi)
+
+plot_dt <- rbindlist(list(
+  dt_sufi[Version == "New", .(G2G.ID, CATCHMENTSIZE, Version = "New", Storm, outcome)],
+  dt_sim[Version == "Old",  .(G2G.ID, CATCHMENTSIZE, Version = "sim Old", Storm, outcome)],
+  dt_sufi[Version == "Old", .(G2G.ID, CATCHMENTSIZE, Version = "sufi Old", Storm, outcome)]
+))
+
+# 2. Set strict factor levels for X-axis (Version) and Fill (bottom-to-top outcome)
+plot_dt[, Version := factor(Version, levels = c("New", "sim Old", "sufi Old"))]
+plot_dt[, outcome := factor(
+  outcome,
+levels = c(
+  "miss" ,              # Top
+  "false alarm",
+  "close false alarm",
+  "missing data",
+  "near miss",
+  "correct rejection",
+  "hit"               # Top
+)
+)]
+
+# 3. Create the size subsets
+small  <- plot_dt[CATCHMENTSIZE < 100]
+medium <- plot_dt[CATCHMENTSIZE >= 100 & CATCHMENTSIZE < 500]
+large  <- plot_dt[CATCHMENTSIZE >= 500]
+
+# 4. Calculate unique site counts safely for all 3 versions
+n_small_new      <- length(unique(small[Version == "New"]$G2G.ID))
+n_small_sim_old  <- length(unique(small[Version == "sim Old"]$G2G.ID))
+n_small_sufi_old <- length(unique(small[Version == "sufi Old"]$G2G.ID))
+
+n_med_new        <- length(unique(medium[Version == "New"]$G2G.ID))
+n_med_sim_old    <- length(unique(medium[Version == "sim Old"]$G2G.ID))
+n_med_sufi_old   <- length(unique(medium[Version == "sufi Old"]$G2G.ID))
+
+n_large_new      <- length(unique(large[Version == "New"]$G2G.ID))
+n_large_sim_old  <- length(unique(large[Version == "sim Old"]$G2G.ID))
+n_large_sufi_old <- length(unique(large[Version == "sufi Old"]$G2G.ID))
+
+# 5. Universal color palette
+outcome_colors <- c(
+  "hit"               = "#2b83ba",  
+  "correct rejection" = "#cccccc",  
+  "near miss"         = "#abdda4",  
+  "missing data"      = "#808080",  
+  "close false alarm" = "#fee08b",  
+  "false alarm"       = "#fdae61",  
+  "miss"              = "#d7191c"   
+)
+
+
+small_plot <- ggplot(small, aes(x = Version, fill = outcome)) +
+  geom_bar(position = "fill", color = "black", linewidth = 0.3) +
+  facet_wrap(~ Storm) +
+  scale_y_continuous(labels = scales::percent_format(), expand = c(0, 0)) +
+  scale_fill_manual(values = outcome_colors, drop = FALSE) +
+  labs(
+    title = paste0("Outcome Breakdown by Storms:\n SMALL SITES (<100km2) | n New: ", n_small_new, " | n sim Old: ", n_small_sim_old, " | n sufi Old: ", n_small_sufi_old),
+    subtitle = "Comparing performance across New, sim Old, and sufi Old setups",
+    x = "Site Version",
+    y = "Percentage of Total Outcomes",
+    fill = "Outcome"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 35, hjust = 1)
+  )
+
+
+medium_plot <- ggplot(medium, aes(x = Version, fill = outcome)) +
+  geom_bar(position = "fill", color = "black", linewidth = 0.3) +
+  facet_wrap(~ Storm) +
+  scale_y_continuous(labels = scales::percent_format(), expand = c(0, 0)) +
+  scale_fill_manual(values = outcome_colors, drop = FALSE) +
+  labs(
+    title = paste0("Outcome Breakdown by Storms:\n MEDIUM SITES (100-500km2) | n New: ", n_med_new, " | n sim Old: ", n_med_sim_old, " | n sufi Old: ", n_med_sufi_old),
+    subtitle = "Comparing performance across New, sim Old, and sufi Old setups",
+    x = "Site Version",
+    y = "Percentage of Total Outcomes",
+    fill = "Outcome"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 35, hjust = 1)
+  )
+
+
+large_plot <- ggplot(large, aes(x = Version, fill = outcome)) +
+  geom_bar(position = "fill", color = "black", linewidth = 0.3) +
+  facet_wrap(~ Storm) +
+  scale_y_continuous(labels = scales::percent_format(), expand = c(0, 0)) +
+  scale_fill_manual(values = outcome_colors, drop = FALSE) +
+  labs(
+    title = paste0("Outcome Breakdown by Storms:\n LARGE SITES (>500km2) | n New: ", n_large_new, " | n sim Old: ", n_large_sim_old, " | n sufi Old: ", n_large_sufi_old),
+    subtitle = "Comparing performance across New, sim Old, and sufi Old setups",
+    x = "Site Version",
+    y = "Percentage of Total Outcomes",
+    fill = "Outcome"
+  ) +
+  theme_bw(base_size = 12) +
+  theme(
+    plot.title = element_text(face = "bold"),
+    legend.position = "top",
+    axis.text.x = element_text(angle = 35, hjust = 1)
+  )
+
+small_plot
+
+medium_plot
+large_plot
 
 ```

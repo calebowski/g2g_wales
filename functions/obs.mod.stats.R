@@ -143,14 +143,12 @@ pod.far.tol <- function(max_discharge, threshold){
       obs_val <- obs[gsub("_Obs", "", names(obs)) == id]
       mod_val <- mod[gsub("_Mod", "", names(mod)) == id]
 
-    if (length(obs_val) != 1 ||
-        length(mod_val) != 1 ||
-        length(thresh)  != 1 ||
-        is.na(obs_val) ||
-        is.na(mod_val) ||
-        is.na(thresh)) {
-      next
-    }
+    if (length(obs_val) != 1 || length(mod_val) != 1 || length(thresh) != 1 ||
+        !is.finite(obs_val) || !is.finite(mod_val) || !is.finite(thresh)) {
+      
+      layer <- data.table(G2G.ID = id, outcome = "missing data")
+      
+    } else {
 
 
       obs_exceed <- obs_val >= thresh
@@ -176,6 +174,7 @@ pod.far.tol <- function(max_discharge, threshold){
           layer <- data.table(G2G.ID = id, outcome = "false alarm")
         }
       }
+    }
 
       if (!is.null(layer)) {
         pod_far_tol <- rbind(pod_far_tol, layer)

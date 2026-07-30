@@ -75,7 +75,7 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
         pstart <- start_date - time.span ## period starts 7 days before 
         pend <- end_date + time.span ## period ends 7 days after
 
-        ## get geographic regions of event, using region classifer list
+        ## get geographic regions of event, using region classifer list (NOT USING THIS ANYMORE BUT LEFT IN IN CASE USEFUL, mostly redundant)
         if ((!exclude.non.notable.sites || is.na(event[, Notable_catchment])) && !is.null(region.classifier)) {
           g2g_ids <- c()
           if (event$North) {
@@ -97,11 +97,11 @@ make.events.list <- function(mod, obs, events,cdata, region.classifier, exclude.
         } else if (is.null(region.classifier)){
           g2g_ids <- cdata$G2G.ID
         }
-        ## filter ts
 
+        ## FILTER by period start and end datae
         event_mod <- mod[DATE_TIME >=pstart &  DATE_TIME <=pend ,  colnames(mod) %in% c("DATE_TIME", paste0(g2g_ids, "_Mod")), with = FALSE] 
         
-        ## print the sites missing
+        ## print the sites missing from metadata
         expected_cols <- paste0(g2g_ids, "_Mod")
 
         missing_cols <- setdiff(expected_cols, colnames(mod)) 
@@ -137,6 +137,7 @@ remove.suffix <- function(g2g_id, suffix = c("_Obs", "_Mod")) {
 
 
 ## note that this is for the runs up to 2021, dates need to be changed otherwise
+## this loads the original run NOT NEW DATA.
 load.g2g.data <- function(dates, sufi = TRUE){
   if (any(!dir.exists(c("../data/g2g_data/Sim_g2g_run/", "../data/g2g_data/SUFI_g2g_run/")))){
     stop("Paths to g2g data don't exist..\n")
