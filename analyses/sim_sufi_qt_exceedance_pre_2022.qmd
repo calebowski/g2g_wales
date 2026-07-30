@@ -235,107 +235,7 @@ for (name in unique(highest_qt_exceeded_list[[1]]$Storm)) {
 
 ```
 
-## Notable catchments hydrographs
 
-These are hydrographs taken from the notable catchments highlighted by NRW for each storm event. <br>
-
-```{r echo = FALSE, message = FALSE, warning = FALSE, include = FALSE}
-#| fig-width: 15
-#| fig-height: 10
-source("../functions/make.hydrograph.r")
-events_list_notable_catchments <- make.events.list(mod_ts, obs_ts, events_pre_2022, cdata = wales_cdata, region.classifier =  NULL, exclude.non.notable.sites = TRUE)
-
-```
-
-```{r echo = FALSE}
-#| fig-align: left
-#| fig-height: 6
-
-library(patchwork)
-
-
-events_list_notable_catchments_pivoted <- list()
-for (event in names(events_list_notable_catchments[[1]])) {
-  sim <- events_list_notable_catchments$sim[[event]]$mod
-  sufi <- events_list_notable_catchments$sufi[[event]]$mod
-  obs <- events_list_notable_catchments$sufi[[event]]$obs
-  events_list_notable_catchments_pivoted[[event]] <- list(sim = sim, sufi = sufi, obs = obs)
-}
-
-
-```
-
-
-```{r echo=FALSE, results='asis'}
-
-for (event in names(events_list_notable_catchments_pivoted)) {
-
-  event_data <- events_list_notable_catchments_pivoted[[event]]
-
-  # Print the main event section header (HTML heading prevents bracket bugs)
-  cat(paste0("\n\n<h3>Storm Event: ", event, "</h3>\n\n"))
-
-  # Extract G2G IDs
-  g2g_ids <- gsub("_Mod", "", colnames(event_data$sim)[2:length(colnames(event_data$sim))])
-
-  # Ensure CATCHMENTSIZE is numeric
-  ord_catchment_size_river <- wales_cdata[G2G.ID %in% g2g_ids]
-  ord_catchment_size_river[, CATCHMENTSIZE := as.numeric(CATCHMENTSIZE)]
-
-  # Find files
-  ev_files <- data.table(
-    path = list.files(
-      path = file.path("../data/figures/wales_events_2018_2021_hydrographs"),
-      pattern = "\\.png$",
-      full.names = TRUE
-    )
-  )
-
-  if (nrow(ev_files) == 0) next
-
-  ev_files[, name := tools::file_path_sans_ext(basename(path))]
-  ev_files[, c("event_file", "g2g_id") := tstrsplit(name, "__", fixed = TRUE)]
-  ev_files[, g2g_id := as.character(g2g_id)]
-
-  ev_files <- ev_files[event_file == event]
-  if (nrow(ev_files) == 0) next
-
-  ev_files <- merge(
-    ev_files,
-    ord_catchment_size_river[, .(G2G.ID, River.Name, CATCHMENTSIZE)],
-    by.x = "g2g_id",
-    by.y = "G2G.ID",
-    all = FALSE
-  )
-
-  setorder(ev_files, River.Name, CATCHMENTSIZE)
-
-  # Generate HTML sub-headers and inject side-by-side images
-  for (rv in unique(ev_files$River.Name)) {
-    
-    # Using an HTML <h4> tag instead of #### protects the brackets in TAFF[SE](WA)
-    cat(paste0("\n\n<h4>River System: ", rv, "</h4>\n\n"))
-    
-    paths <- ev_files[River.Name == rv, path]
-    
-    # Wrap images in a simple div container, and set each image to 49% width 
-    # so they naturally sit side-by-side
-    cat("<div style='width: 100%;'>\n")
-    for (img_path in paths) {
-      cat(paste0("<img src='", img_path, "' style='width: 49%; display: inline-block; padding: 2px;'>\n"))
-    }
-    cat("</div>\n\n")
-  }
-}
-```
-
-<!-- ## Hydrographs (obs vs modelled comparison)
-
-### Largest flow mismatches in model vs obs
-
-Hydrographs shown for where there is the largest discrepancies in the QT exceeded (`worst_mismatches$rank_diff>=4`).
-Note that the storm events are lumped together here. <br>
-Top 10 plotted -->
 
 ```{r echo = FALSE}
 #| fig-width: 15
@@ -467,67 +367,30 @@ q <- q + theme(
 
 
 
-ggsave(
-          filename = "../data/figures/qt_heatmap_sim.svg",
-          plot = p,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
+# ggsave( ## save files here
+#           filename = "../data/figures/qt_heatmap_sim.svg",
+#           plot = p,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
 
-ggsave(
-          filename = "../data/figures/qt_heatmap_sufi.svg",
-          plot = q,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
+# ggsave(
+#           filename = "../data/figures/qt_heatmap_sufi.svg",
+#           plot = q,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
 
 
 
 p + q
 
-
-
-## this prints the podfar table using kable, which converts it to md format
-# lapply(names(comp_dt_list), function(model_config){
-
-#   comp_dt <- comp_dt_list[[model_config]]  
-
-#   hits_misses <- list()
-#   for (qt in q_levels){
-#     hits_misses[[qt]] <- comp_dt[, .(
-#       Hits         = sum(obs >= qt & mod >= qt, na.rm = TRUE),
-#       False_Alarms = sum((obs < qt | is.na(obs)) & mod >= qt, na.rm = TRUE),
-#       Misses       = sum(obs >= qt & (mod < qt | is.na(mod)), na.rm = TRUE),
-#       n_obs = sum(obs >= qt, na.rm = TRUE)
-#     ), by = Storm] ## test over qmed
-#   }
-
-
-#   library(knitr)
-
-#   for (qt in q_levels) {
-#     hits_misses[[qt]][, POD := Hits / (Hits + Misses)]
-#     hits_misses[[qt]][, FAR := False_Alarms / (Hits + False_Alarms)]
-#     hits_misses[[qt]][, CSI := Hits / (Hits + Misses + False_Alarms)]
-    
-#     tab <- hits_misses[[qt]][!(Hits == 0 & False_Alarms == 0 & Misses == 0)]    
-#     # tab <- tab[!POD == "NaN" & !FAR == "NaN" & CSI == "NaN"]
-#     # cat(paste0(qt, "\n"))
-    
-#     print(
-#       kable(
-#         tab,
-#         caption = paste(model_config, "prediction accuracy metrics for", qt)
-#       )
-#     )
-#   }
-# })
 
 ```
 
@@ -632,11 +495,6 @@ fwrite(merged_pme,"../data/pme_sim_sufi_events_2018_2021.csv")
  
 
 ```
-
-<!-- 
-TG 135. or a catchment of 605.89 km² (the Teifi at Llandysul is a sizeable, well-known river), a genuine flood peak physically cannot rise and fall that fast — travel time and channel/floodplain storage smooth the hydrograph out over many hours at minimum. A spike that's essentially one or two timesteps wide, with no proportional rise/recession, is a classic signature of a rating-curve extrapolation error or a sensor/logger glitch, not a real flow. High flows are usually converted from a measured water level via a rating curve, and rating curves are often poorly constrained (or not measured at all) far above the range of flows normally gauged — so an unusual stage reading during an extreme event can translate into a wildly wrong discharge estimate. That would explain why the model — which is right about the runoff response — looks like it's dramatically "missing" the peak, when actually the peak itself may not be real (or not that large).
-For your worst-negative-PME site list generally, I'd build a small table across all of them capturing: catchment size, KGE/Bias/R² (Sim | SUFI), whether any extreme spike shows the "instant up-and-down" signature, whether it's corroborated by neighbours/rainfall, and whether NRW's QC flags confirm a data issue. That turns "these are the worst sites" into "here's how many of the worst sites are genuine model weaknesses vs. data quality issues" — a much stronger, more defensible conclusion. -->
-
 
 ## Explore impcat of ratings
 
@@ -979,42 +837,6 @@ summary(detection_interaction)
 Detection probability increased significantly with precipitation, catchment size, and urban/suburban cover. Inclusion of a precipitation × urbanisation interaction did not improve model performance (LRT: χ² = 0.56, df = 1, p = 0.45; ΔAIC = +1.43), suggesting that the influence of precipitation on detection probability was not dependent on urbanisation.
 
 
-## CSI calculation per site
-
-```{r}
-
-
-sufi_dt <- nrw_thresh_exceed_dt$alert$sufi
-
-sufi_thresholds_dt <- list(alert = nrw_thresh_exceed_dt$alert$sufi, warning =nrw_thresh_exceed_dt$warning$sufi , severe = nrw_thresh_exceed_dt$severe$sufi)
-
-
-create.csi.plot <- function(dt){
-  site_counts <- dt[, .N, by = .(G2G.ID, outcome)]
-  site_counts_wide <- dcast(site_counts, G2G.ID ~ outcome, value.var = "N", fill = 0)
-
-
-  site_counts_wide[, CSI_strict := hit / (hit + miss + `false alarm`)]
-  site_counts_wide[, CSI_lenient :=
-    (hit + `near miss`) / (hit + `near miss` + miss + `false alarm`)]
-    required_cols <- c("hit", "near miss", "miss", "false alarm")
-
-  for (col in required_cols) {
-    if (!col %in% names(site_counts_wide)) {
-      site_counts_wide[, (col) := 0]
-    }
-  }
-
-  csi_strict <- site_counts_wide[, .(G2G.ID, CSI_strict)]
-
-  p <- plot.single.point(site_counts_wide$G2G.ID, wales =wales, cdata = wales_cdata, fill.variable = csi_strict)
-  return(p)
-}
-
-
-csi_plots <- lapply(sufi_thresholds_dt, create.csi.plot)
-
-```
 
 ## plots of detection vs predictors
 
@@ -1211,24 +1033,24 @@ sufi_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt$sufi, lenient = FALSE)
 
 sim_csi_qmed <- create.csi.plot(qmed_pod_far_tol_dt$sim, lenient = FALSE)
 
-ggsave(
-          filename = "../data/figures/sim_csi_qmed.png",
-          plot = sim_csi_qmed,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
-ggsave(
-          filename = "../data/figures/sufi_csi_qmed.png",
-          plot = sufi_csi_qmed,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
+# ggsave(
+#           filename = "../data/figures/sim_csi_qmed.png",
+#           plot = sim_csi_qmed,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
+# ggsave(
+#           filename = "../data/figures/sufi_csi_qmed.png",
+#           plot = sufi_csi_qmed,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
 
 
 sufi_csi_qmed_len <- create.csi.plot(qmed_pod_far_tol_dt$sufi, lenient = TRUE)
@@ -1236,24 +1058,24 @@ sufi_csi_qmed_len <- create.csi.plot(qmed_pod_far_tol_dt$sufi, lenient = TRUE)
 
 sim_csi_qmed_len <- create.csi.plot(qmed_pod_far_tol_dt$sim, lenient = TRUE)
 
-ggsave(
-          filename = "../data/figures/sim_csi_qmed_lenient.png",
-          plot = sim_csi_qmed_len,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
-ggsave(
-          filename = "../data/figures/sufi_csi_qmed_lenient.png",
-          plot = sufi_csi_qmed_len,
-          width = 8,
-          height = 6,
-          units = "in",
-          dpi = 300,
-          bg = "transparent"
-        )
+# ggsave(
+#           filename = "../data/figures/sim_csi_qmed_lenient.png",
+#           plot = sim_csi_qmed_len,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
+# ggsave(
+#           filename = "../data/figures/sufi_csi_qmed_lenient.png",
+#           plot = sufi_csi_qmed_len,
+#           width = 8,
+#           height = 6,
+#           units = "in",
+#           dpi = 300,
+#           bg = "transparent"
+#         )
 ```
 
 

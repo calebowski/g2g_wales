@@ -138,7 +138,7 @@ complete_metadata <- rbind(wales_cdata, g2g_new_sites_metadata)
 ```
 
 
-## QT Exceedance PODFAR
+## QT MED PODFAR
 
 ```{r}
 
@@ -362,7 +362,6 @@ p
 
 ```{r}
 
-
 dt_sim  <- copy(qmed_pod_far_tol_dt_combined$sim)
 dt_sufi <- copy(qmed_pod_far_tol_dt_combined$sufi)
 
@@ -473,8 +472,20 @@ large_plot <- ggplot(large, aes(x = Version, fill = outcome)) +
   )
 
 small_plot
-
 medium_plot
 large_plot
+
+```
+
+
+
+##
+
+```{r}
+
+nrw_threshold <- fread("../data/nrw_alert_warning_flow_thresh.csv", fill =TRUE, sep=",")
+
+
+
 
 ```

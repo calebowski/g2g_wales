@@ -2,7 +2,8 @@ data/
 sim_qt_exceedance_pre_2022_files/
 sufi_qt_exceedance_pre_2022_files/
 qt_exceedance_pre_2022_files/
-*.html
+# *.html
 .quarto
 *.tex
 *.pdf
+*.zip
