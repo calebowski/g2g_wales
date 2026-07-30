@@ -308,10 +308,8 @@ dt_sim[Version == "Old",  .(Version = "sim Old", Storm, outcome)],
 dt_sufi[Version == "Old", .(Version = "sufi Old", Storm, outcome)]
 ))
 
-# 2. Set X-axis bar order: New -> sim Old -> sufi Old
 plot_dt[, Version := factor(Version, levels = c("New", "sim Old", "sufi Old"))]
 
-# 3. Set Stack fill order (Bottom -> Top)
 plot_dt[, outcome := factor(
 outcome,
 levels = c(
@@ -325,7 +323,7 @@ levels = c(
 )
 )]
 
-# 4. Plot 3-bar comparison
+#3 bar plot
 p <- ggplot(plot_dt[!is.na(outcome)], aes(x = Version, fill = outcome)) +
 geom_bar(position = "fill", color = "black", linewidth = 0.3) +
 facet_wrap(~ Storm) +
@@ -365,7 +363,6 @@ p
 ```{r}
 
 
-# 1. Combine sim and sufi, keeping CATCHMENTSIZE and G2G.ID for subsetting/counting
 dt_sim  <- copy(qmed_pod_far_tol_dt_combined$sim)
 dt_sufi <- copy(qmed_pod_far_tol_dt_combined$sufi)
 
@@ -375,7 +372,6 @@ plot_dt <- rbindlist(list(
   dt_sufi[Version == "Old", .(G2G.ID, CATCHMENTSIZE, Version = "sufi Old", Storm, outcome)]
 ))
 
-# 2. Set strict factor levels for X-axis (Version) and Fill (bottom-to-top outcome)
 plot_dt[, Version := factor(Version, levels = c("New", "sim Old", "sufi Old"))]
 plot_dt[, outcome := factor(
   outcome,
@@ -390,12 +386,10 @@ levels = c(
 )
 )]
 
-# 3. Create the size subsets
 small  <- plot_dt[CATCHMENTSIZE < 100]
 medium <- plot_dt[CATCHMENTSIZE >= 100 & CATCHMENTSIZE < 500]
 large  <- plot_dt[CATCHMENTSIZE >= 500]
 
-# 4. Calculate unique site counts safely for all 3 versions
 n_small_new      <- length(unique(small[Version == "New"]$G2G.ID))
 n_small_sim_old  <- length(unique(small[Version == "sim Old"]$G2G.ID))
 n_small_sufi_old <- length(unique(small[Version == "sufi Old"]$G2G.ID))
@@ -408,7 +402,6 @@ n_large_new      <- length(unique(large[Version == "New"]$G2G.ID))
 n_large_sim_old  <- length(unique(large[Version == "sim Old"]$G2G.ID))
 n_large_sufi_old <- length(unique(large[Version == "sufi Old"]$G2G.ID))
 
-# 5. Universal color palette
 outcome_colors <- c(
   "hit"               = "#2b83ba",  
   "correct rejection" = "#cccccc",  
